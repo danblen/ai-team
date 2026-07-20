@@ -1,0 +1,69 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deploy target'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - pages
+          - aws
+          - both
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy-pages:
+    if: github.event_name == 'push' || inputs.target == 'pages' || inputs.target == 'both'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy-aws:
+    if: github.event_name == 'push' || inputs.target == 'aws' || inputs.target == 'both'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 44.194.211.249
+          username: ec2-user
+          key: ${{ secrets.AWS_SSH_KEY }}
+          port: 22
+          script: |
+            cd /home/ec2-user/WS/ai-team
+            git pull origin main 2>/dev/null || git pull https://github.com/danblen/ai-team.git main
+            npm ci
+            npm run build
+            pm2 restart ai-team 2>/dev/null || pm2 start npm --name ai-team -- run start

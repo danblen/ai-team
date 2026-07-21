@@ -5,7 +5,7 @@
   "type": "module",
   "description": "An AI-agent-driven app builder demo. Describe an app in natural language, watch the agent stream a plan + code, and see it render live.",
   "scripts": {
-    "dev": "concurrently -k -n server,web -c cyan,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev": "node dev.js",
     "dev:server": "node server/index.js",
     "dev:web": "vite",
     "build": "tsc -b && vite build",

@@ -12,10 +12,7 @@ export const CODE_RULES = `
 \`\`\`
 
 硬性要求：
-- 必须包含入口 'src/main.jsx'（用 createRoot 挂载到 #root）与 'src/App.jsx'。
 - 合理拆分组件到 'src/components/' 下，样式用 '.css' 文件并在组件中 import。
-- 只能使用 react 与 react-dom，不要引入其它 npm 依赖；图片用 https://picsum.photos 或 emoji/SVG。
-- 不要输出 package.json、vite.config、index.html（构建环境会自动提供）。
 - 代码必须可直接构建运行，import 路径要正确（相对路径带扩展名，如 './components/Foo.jsx'）。
 - 界面现代、精致、可交互，有 hover 与过渡动画，响应式。
 - 综合团队成员（产品、设计、评审）的意见来实现。
@@ -34,7 +31,8 @@ const c = (
   goal: string,
   systemPrompt: string,
   producesCode = false,
-): AgentRole => ({ id, name, emoji, color, goal, systemPrompt, producesCode, enabled: true });
+  enabled = false,
+): AgentRole => ({ id, name, emoji, color, goal, systemPrompt, producesCode, enabled });
 
 /**
  * Default crew. Ordered as a sequential process (CrewAI-style): each agent
@@ -68,11 +66,12 @@ export const DEFAULT_AGENTS: AgentRole[] = [
   ),
   c(
     'engineer',
-    '前端工程师',
+    '工程师',
     '💻',
     '#46d39a',
     '综合团队意见，产出可运行应用',
-    '你是一名顶尖前端工程师。综合团队（产品、设计、评审）的全部意见，产出一个可运行、精致、可交互的单文件网页应用。',
+    '你是一名顶尖工程师。综合团队（产品、设计、评审）的全部意见，产出一个可运行、精致、可交互的单文件网页应用。',
+    true,
     true,
   ),
 ];

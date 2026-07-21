@@ -10,7 +10,7 @@ import { mountEnv } from './env.js';
 import { mountAuth, authRequired, authFromRequest } from './auth.js';
 
 // override so values in .env win over any pre-existing shell env vars.
-dotenv.config({ override: true });
+dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');

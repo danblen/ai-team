@@ -508,10 +508,15 @@ button {
 }
 
 .btn.stop {
-  background: rgba(255, 107, 122, 0.18);
-  color: #ffb3bb;
-  border: 1px solid rgba(255, 107, 122, 0.4);
+  background: rgba(255, 80, 80, 0.85);
+  color: #fff;
+  border: none;
   font-size: 13px;
+  cursor: pointer;
+}
+
+.btn.stop:hover {
+  background: rgb(230, 60, 60);
 }
 
 .stop-icon {

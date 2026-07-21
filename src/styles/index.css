@@ -1474,6 +1474,8 @@ button {
   flex-wrap: wrap;
 }
 .wtabs .tab-ico {
+  display: flex;
+  align-items: center;
   font-size: 13px;
   line-height: 1;
   font-family: 'SF Mono', ui-monospace, Menlo, monospace;

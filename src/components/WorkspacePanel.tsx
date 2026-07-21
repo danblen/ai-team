@@ -17,7 +17,7 @@ interface Props {
 }
 
 const TABS: { id: WorkTab; label: string; icon: string }[] = [
-  { id: 'overview', label: '概览', icon: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1" fill="none"/><path d="M2 7h12M8 2.5v11" stroke="currentColor" stroke-width="1" fill="none"/></svg>' },
+  { id: 'overview', label: '概览', icon: '<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="12" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="1.5" y="8.5" width="5.5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="8.5" y="8.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>' },
   { id: 'preview', label: '预览', icon: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8s2-4 6-4 6 4 6 4-2 4-6 4-6-4-6-4z" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>' },
   { id: 'code', label: '代码', icon: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L2 8l4 4M10 4l4 4-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
   { id: 'cloud', label: '云端', icon: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 11.5a3 3 0 01.5-5.5 3.5 3.5 0 016.6.3 2.5 2.5 0 01.4 5.2H4z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" fill="none"/></svg>' },

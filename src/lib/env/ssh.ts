@@ -1,6 +1,6 @@
 import type { AgentEvent, ExecutionEnvironment, EnvHealth, SSHEnvConfig } from './types';
 import type { ProjectFile } from '../types';
-import { detectAgents } from '../api';
+import { detectAgents, BASE_PREFIX } from '../api';
 import { consumeSSE } from './sse';
 
 /**
@@ -22,7 +22,7 @@ export class SSHEnvironment implements ExecutionEnvironment {
   }
 
   async *run(task: string, agentId: string, signal: AbortSignal): AsyncIterable<AgentEvent> {
-    const res = await fetch('/api/env/ssh/run', {
+    const res = await fetch(`${BASE_PREFIX}/api/env/ssh/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -38,7 +38,7 @@ export class SSHEnvironment implements ExecutionEnvironment {
   }
 
   async readFiles(): Promise<ProjectFile[]> {
-    const res = await fetch(`/api/env/local/files?sid=${encodeURIComponent(this.sid)}`);
+    const res = await fetch(`${BASE_PREFIX}/api/env/local/files?sid=${encodeURIComponent(this.sid)}`);
     const data = await res.json().catch(() => ({ files: [] }));
     return (data.files || []) as ProjectFile[];
   }
@@ -49,7 +49,7 @@ export class SSHEnvironment implements ExecutionEnvironment {
 
   async healthCheck(): Promise<EnvHealth> {
     try {
-      const res = await fetch('/api/env/ssh/test', {
+      const res = await fetch(`${BASE_PREFIX}/api/env/ssh/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.config),

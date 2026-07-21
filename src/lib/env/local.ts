@@ -1,6 +1,6 @@
 import type { AgentEvent, ExecutionEnvironment, EnvHealth, LocalEnvConfig } from './types';
 import type { ProjectFile } from '../types';
-import { detectAgents } from '../api';
+import { detectAgents, BASE_PREFIX } from '../api';
 import { consumeSSE } from './sse';
 
 /**
@@ -24,7 +24,7 @@ export class LocalEnvironment implements ExecutionEnvironment {
   }
 
   async *run(task: string, agentId: string, signal: AbortSignal): AsyncIterable<AgentEvent> {
-    const res = await fetch('/api/env/local/run', {
+    const res = await fetch(`${BASE_PREFIX}/api/env/local/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -43,7 +43,7 @@ export class LocalEnvironment implements ExecutionEnvironment {
     const params = new URLSearchParams({ sid: this.sid });
     if (this.workDir) params.set('workDir', this.workDir);
     if (this.projectName) params.set('projectName', this.projectName);
-    const res = await fetch(`/api/env/local/files?${params}`);
+    const res = await fetch(`${BASE_PREFIX}/api/env/local/files?${params}`);
     const data = await res.json().catch(() => ({ files: [] }));
     return (data.files || []) as ProjectFile[];
   }

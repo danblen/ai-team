@@ -1,7 +1,7 @@
 import type { AgentEvent, ExecutionEnvironment, EnvHealth, RemoteEnvConfig } from './types';
 import type { ProjectFile } from '../types';
 import { fetchHealth, detectAgents } from '../api';
-import { clearApiConfig, setApiConfig, getAuthToken } from '../api';
+import { clearApiConfig, setApiConfig, getAuthToken, BASE_PREFIX } from '../api';
 import { consumeSSE } from './sse';
 
 /**
@@ -52,7 +52,7 @@ export class RemoteEnvironment implements ExecutionEnvironment {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetch(`${base}/api/env/local/run`, {
+    const res = await fetch(`${base}${BASE_PREFIX}/api/env/local/run`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -65,11 +65,11 @@ export class RemoteEnvironment implements ExecutionEnvironment {
       signal,
     });
 
-    // 远端 done 事件里的 previewUrl 是相对路径（/preview/<sid>/），
-    // 需拼上远端源，前端 iframe 才能从远端加载预览。
+    // 远端 done 事件里的 previewUrl 是根相对路径（/preview/<sid>/），
+    // 需拼上远端源与基路径，前端 iframe 才能从远端加载预览。
     for await (const event of consumeSSE(res)) {
       if (event.type === 'done' && event.previewUrl && event.previewUrl.startsWith('/')) {
-        yield { ...event, previewUrl: `${base}${event.previewUrl}` };
+        yield { ...event, previewUrl: `${base}${BASE_PREFIX}${event.previewUrl}` };
       } else {
         yield event;
       }
@@ -83,7 +83,7 @@ export class RemoteEnvironment implements ExecutionEnvironment {
 
   async getPreviewUrl(): Promise<string | null> {
     const base = this.config.url.replace(/\/+$/, '');
-    return `${base}/preview/${this.sid}/`;
+    return `${base}${BASE_PREFIX}/preview/${this.sid}/`;
   }
 
   async healthCheck(): Promise<EnvHealth> {

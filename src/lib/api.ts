@@ -57,8 +57,12 @@ export function getApiPrefix(): string {
   return _apiPrefix;
 }
 
+// 应用部署的基路径（vite `base`，如 /ai-team）。生产环境后端挂在该子路径下，
+// 所有 /api、/preview 请求都必须带上它，否则会绕过反向代理导致 404。
+export const BASE_PREFIX = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
 function apiUrl(path: string): string {
-  return _apiPrefix ? `${_apiPrefix}${path}` : path;
+  return `${_apiPrefix}${BASE_PREFIX}${path}`;
 }
 
 function apiHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -170,7 +174,9 @@ export async function buildPreview(
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.url) throw new Error(data.error || `构建失败 (${res.status})`);
-  return data.url as string;
+  // 后端返回的是根相对路径（/preview/<sid>/），iframe 需带上基路径才能加载。
+  const url = data.url as string;
+  return url.startsWith('/') ? `${BASE_PREFIX}${url}` : url;
 }
 
 export interface StreamHandlers {

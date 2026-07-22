@@ -10,7 +10,6 @@ interface Props {
 
 export default function PromptInput({ streaming, canIterate, onSubmit, onStop }: Props) {
   const [value, setValue] = useState('');
-  const [mode, setMode] = useState<RunMode>('iterate');
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-grow the textarea up to a max height.
@@ -24,7 +23,7 @@ export default function PromptInput({ streaming, canIterate, onSubmit, onStop }:
   const send = () => {
     const text = value.trim();
     if (!text || streaming) return;
-    onSubmit(text, canIterate ? mode : 'replan');
+    onSubmit(text, canIterate ? 'iterate' : 'replan');
     setValue('');
   };
 
@@ -37,26 +36,6 @@ export default function PromptInput({ streaming, canIterate, onSubmit, onStop }:
 
   return (
     <div className="composer">
-      {canIterate && (
-        <div className="mode-toggle" role="tablist" aria-label="生成模式">
-          <button
-            className={`mode-btn ${mode === 'iterate' ? 'active' : ''}`}
-            onClick={() => setMode('iterate')}
-            title="在当前项目基础上增量修改"
-            disabled={streaming}
-          >
-            🔁 继续迭代
-          </button>
-          <button
-            className={`mode-btn ${mode === 'replan' ? 'active' : ''}`}
-            onClick={() => setMode('replan')}
-            title="重新组织完整团队，从头规划"
-            disabled={streaming}
-          >
-            🧭 重新规划
-          </button>
-        </div>
-      )}
       <div className="composer-box">
         <textarea
           ref={taRef}

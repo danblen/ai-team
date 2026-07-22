@@ -18,8 +18,12 @@ const CLI_DEFS = {
   opencode: {
     bin: 'opencode',
     fallbackBins: ['/Volumes/z/app/opencode/opencode.sh'],
-    // 显式传入 --dir，把项目根锁定在隔离工作目录，避免向上探测到宿主仓库。
-    args: (task, workDir) => (workDir ? ['run', '--dir', workDir, task] : ['run', task]),
+    // --dir 把项目根锁定在隔离工作目录，避免向上探测到宿主仓库。
+    // --auto 自动批准权限请求（headless 无 TTY 时，external_directory / doom_loop
+    //   等默认为 "ask" 的请求会被自动拒绝，导致 mkdir 等操作失败）；
+    //   显式 deny 规则仍然生效。
+    args: (task, workDir) =>
+      workDir ? ['run', '--auto', '--dir', workDir, task] : ['run', '--auto', task],
     readyCheck: () => _which('opencode'),
   },
   aider: {

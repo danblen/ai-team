@@ -66,7 +66,7 @@ export default function OverviewTab() {
             {s.summary ? (
               <p className="ov-summary">{stripBullets(s.summary)}</p>
             ) : (
-              <p className="ov-muted">尚无产品说明，运行一次「重新规划」即可由产品经理智能体生成。</p>
+              <p className="ov-muted">尚无产品说明，发送一次需求即可由产品经理智能体生成。</p>
             )}
             {features.length > 0 && (
               <ul className="ov-features">

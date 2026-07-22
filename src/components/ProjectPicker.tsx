@@ -1,0 +1,359 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useApp } from '../store/AppProvider';
+import DirBrowserModal from './DirBrowserModal';
+import { listProjects, createProject } from '../lib/api';
+import type { RemoteProject } from '../lib/api';
+
+/**
+ * 概览区的项目 / 工作目录选择入口。
+ * - 远程模式：列出「我的项目」（后端注册表），可新建或选已有项目；选定后为本会话
+ *   创建 Git worktree 分支并锁定，提供「合并到主干」按钮。
+ * - 本地模式：选择任意工作目录，或从历史项目直接选取立即开发。
+ */
+export default function ProjectPicker() {
+  const app = useApp();
+  const s = app.current;
+  const mode = app.envConfig.mode;
+
+  // 已绑定项目（远程）或已选目录（本地）→ 展示锁定 / 当前项目卡片。
+  if (mode === 'remote' && s.projectId) {
+    return <RemoteBoundCard />;
+  }
+  if (mode === 'local' && s.workDir) {
+    return <LocalBoundCard />;
+  }
+
+  // 未选定 → 展示选择器。
+  if (mode === 'remote') return <RemotePicker />;
+  if (mode === 'local') return <LocalPicker />;
+  return null; // SSH 等模式不在此处理
+}
+
+// ---------- 远程：已绑定项目卡片（锁定） ----------
+function RemoteBoundCard() {
+  const app = useApp();
+  const s = app.current;
+  const [merging, setMerging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const merge = useCallback(async () => {
+    setMerging(true);
+    setError(null);
+    try {
+      await app.mergeSessionProject(s.id);
+    } catch (e) {
+      setError((e as Error).message || '合并失败');
+    } finally {
+      setMerging(false);
+    }
+  }, [app, s.id]);
+
+  return (
+    <section className="ov-card project-card">
+      <h3>当前项目</h3>
+      <div className="project-bound">
+        <span className="project-bound-name">📦 {s.projectName || s.projectId}</span>
+        <span className="project-lock" title="已锁定，本会话不可切换项目">🔒 已锁定</span>
+      </div>
+      {s.workDir && <p className="env-hint" title={s.workDir}>工作树：{s.workDir}</p>}
+      {error && <p className="env-hint warn">{error}</p>}
+      <div className="project-actions">
+        {s.merged ? (
+          <span className="project-merged">✔ 已合并到主干</span>
+        ) : (
+          <button className="btn-primary" onClick={merge} disabled={merging || app.running}>
+            {merging ? '正在合并…' : '合并到主干'}
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------- 本地：已绑定项目卡片（Git 工作树） ----------
+function LocalBoundCard() {
+  const app = useApp();
+  const s = app.current;
+  const [merging, setMerging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const merge = useCallback(async () => {
+    setMerging(true);
+    setError(null);
+    try {
+      await app.mergeLocalSession(s.id);
+    } catch (e) {
+      setError((e as Error).message || '合并失败');
+    } finally {
+      setMerging(false);
+    }
+  }, [app, s.id]);
+
+  // 工作树已切出：workDir 与主干不同。
+  const hasWorktree = Boolean(s.workDir && s.workDir !== s.projectRoot);
+  const devMode = s.localDevMode || 'worktree';
+  const direct = devMode === 'direct';
+
+  return (
+    <section className="ov-card project-card">
+      <h3>当前项目</h3>
+      <div className="project-bound">
+        <span className="project-bound-name">📦 {s.projectName || s.projectRoot || s.workDir}</span>
+        <span className="project-lock" title="已锁定，本会话不可再切换项目">🔒 已锁定</span>
+      </div>
+      {s.projectRoot && (
+        <p className="env-hint" title={s.projectRoot}>主干：{s.projectRoot}</p>
+      )}
+
+      {/* 开发方式选择：仅在尚未切出工作树前可切换。 */}
+      {!hasWorktree && (
+        <div className="dev-mode-choice">
+          <label className={`dev-mode-opt${devMode === 'worktree' ? ' active' : ''}`}>
+            <input
+              type="radio"
+              name={`devmode-${s.id}`}
+              checked={devMode === 'worktree'}
+              disabled={app.running}
+              onChange={() => app.setLocalDevMode(s.id, 'worktree')}
+            />
+            <span>新建工作树开发（开始会话时从主干切出，可合并回主干）</span>
+          </label>
+          <label className={`dev-mode-opt${direct ? ' active' : ''}`}>
+            <input
+              type="radio"
+              name={`devmode-${s.id}`}
+              checked={direct}
+              disabled={app.running}
+              onChange={() => app.setLocalDevMode(s.id, 'direct')}
+            />
+            <span>直接在当前分支开发（不创建工作树）</span>
+          </label>
+        </div>
+      )}
+
+      {hasWorktree ? (
+        <p className="project-path" title={s.workDir}>工作树：{s.workDir}</p>
+      ) : direct ? (
+        <p className="env-hint">将直接在当前分支开发，改动直接作用于主干。</p>
+      ) : (
+        <p className="env-hint">开始会话后将自动从主干切出一份 Git 工作树。</p>
+      )}
+      {error && <p className="env-hint warn">{error}</p>}
+
+      {/* 仅工作树模式且已切出时提供合并。直接开发无需合并。 */}
+      {!direct && (
+        <div className="project-actions">
+          {s.merged ? (
+            <span className="project-merged">✔ 已合并到主干</span>
+          ) : (
+            <button
+              className="btn-primary"
+              onClick={merge}
+              disabled={merging || app.running || !hasWorktree}
+              title={hasWorktree ? '' : '尚未开始会话，无可合并的工作树'}
+            >
+              {merging ? '正在合并…' : '合并到主干'}
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------- 远程：项目选择器 ----------
+function RemotePicker() {
+  const app = useApp();
+  const s = app.current;
+  const [projects, setProjects] = useState<RemoteProject[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const loggedIn = Boolean(app.authEmail);
+
+  const refresh = useCallback(() => {
+    if (!loggedIn) return;
+    setLoading(true);
+    setError(null);
+    listProjects()
+      .then(setProjects)
+      .catch((e) => setError((e as Error).message || '读取项目失败'))
+      .finally(() => setLoading(false));
+  }, [loggedIn]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const bind = useCallback(
+    async (project: RemoteProject) => {
+      setBusy(true);
+      setError(null);
+      try {
+        await app.bindSessionProject(s.id, project);
+      } catch (e) {
+        setError((e as Error).message || '绑定项目失败');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [app, s.id],
+  );
+
+  const create = useCallback(async () => {
+    const n = name.trim();
+    if (!n) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const project = await createProject(n);
+      setName('');
+      await app.bindSessionProject(s.id, project);
+    } catch (e) {
+      setError((e as Error).message || '新建项目失败');
+    } finally {
+      setBusy(false);
+    }
+  }, [app, name, s.id]);
+
+  if (!loggedIn) {
+    return (
+      <section className="ov-card project-card">
+        <h3>选择项目</h3>
+        <p className="env-hint warn">远程模式需先登录。请点击右上角「登录 / 注册」后再选择或新建项目。</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="ov-card project-card project-picker">
+      <h3>选择项目</h3>
+      <p className="env-hint">选择你已有的项目继续开发（将为本会话创建 Git 工作树分支），或新建一个项目。</p>
+
+      <div className="project-new">
+        <input
+          className="env-input"
+          placeholder="新项目名称"
+          value={name}
+          disabled={busy}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              create();
+            }
+          }}
+        />
+        <button className="btn-primary" onClick={create} disabled={busy || !name.trim()}>
+          新建并使用
+        </button>
+      </div>
+
+      {error && <p className="env-hint warn">{error}</p>}
+
+      <div className="project-list">
+        {loading ? (
+          <p className="env-hint">加载中…</p>
+        ) : projects.length === 0 ? (
+          <p className="env-hint">还没有项目，先在上方新建一个。</p>
+        ) : (
+          projects.map((p) => (
+            <button
+              key={p.id}
+              className="project-item"
+              disabled={busy}
+              onClick={() => bind(p)}
+            >
+              <span className="project-item-ico">📦</span>
+              <span className="project-item-name">{p.name}</span>
+              <span className="project-item-meta">继续开发 →</span>
+            </button>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------- 本地：目录 / 历史项目选择器 ----------
+function LocalPicker() {
+  const app = useApp();
+  const s = app.current;
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 历史项目：来自本地项目注册表，按名称展示。
+  const history = app.localProjects;
+
+  const bind = useCallback(
+    async (projectName: string, repoDir: string) => {
+      setBusy(true);
+      setError(null);
+      try {
+        await app.bindLocalProject(s.id, projectName, repoDir);
+        setName('');
+      } catch (e) {
+        setError((e as Error).message || '创建工作树失败');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [app, s.id],
+  );
+
+  const disabled = app.running || busy;
+
+  return (
+    <section className="ov-card project-card project-picker">
+      <h3>选择项目</h3>
+      <p className="env-hint">为项目起个名字并选择一个本地 Git 仓库目录开始开发（将为本会话创建独立工作树，可合并回主干），或从历史项目直接进入。</p>
+
+      <div className="project-new">
+        <input
+          className="env-input"
+          placeholder="项目名称（置空则取目录名）"
+          value={name}
+          disabled={disabled}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <button className="btn-primary" onClick={() => setOpen(true)} disabled={disabled}>
+          {busy ? '正在创建工作树…' : '选择目录并使用'}
+        </button>
+      </div>
+
+      {error && <p className="env-hint warn">{error}</p>}
+
+      {history.length > 0 && (
+        <div className="project-list">
+          <div className="project-list-label">历史项目</div>
+          {history.map((p) => (
+            <button
+              key={p.id}
+              className="project-item"
+              disabled={disabled}
+              onClick={() => bind(p.name, p.workDir)}
+            >
+              <span className="project-item-ico">📦</span>
+              <span className="project-item-name">{p.name}</span>
+              <span className="project-item-meta" title={p.workDir}>{p.workDir}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <DirBrowserModal
+          onPick={(dir) => {
+            setOpen(false);
+            bind(name, dir);
+          }}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </section>
+  );
+}

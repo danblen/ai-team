@@ -59,6 +59,18 @@ export interface Session {
   logs: LogEntry[];
   /** 本会话选定的本地工作目录（绝对路径）；设置后直接作为项目根。 */
   workDir?: string;
+  /** 本地模式：绑定项目的仓库主干目录（合并回该目录）；workDir 为其 worktree。 */
+  projectRoot?: string;
+  /** 远程模式绑定的项目 id（后端 per-user 注册表）。 */
+  projectId?: string;
+  /** 绑定项目的展示名。 */
+  projectName?: string;
+  /** 已绑定项目后锁定本会话，不可再切换项目。 */
+  projectLocked?: boolean;
+  /** 本地模式开发方式：'worktree' 新建 Git 工作树开发（默认）；'direct' 直接在当前分支开发。 */
+  localDevMode?: 'worktree' | 'direct';
+  /** 会话分支是否已合并到主干。 */
+  merged?: boolean;
 }
 
 export type LogLevel = 'info' | 'agent' | 'ok' | 'error' | 'cmd';

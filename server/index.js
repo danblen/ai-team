@@ -8,6 +8,7 @@ import { buildMessages } from './prompt.js';
 import { mountPreview, writeFiles } from './preview.js';
 import { mountPublish } from './publish.js';
 import { mountEnv } from './env.js';
+import { mountProjects } from './projects.js';
 import { mountAuth, authRequired, authFromRequest } from './auth.js';
 
 // override so values in .env win over any pre-existing shell env vars.
@@ -61,6 +62,9 @@ mountPublish(app);
 
 // Execution environment: local CLI detection, SSH / Remote runners.
 mountEnv(app);
+
+// Per-user project registry + Git worktree lifecycle (remote mode projects).
+mountProjects(app);
 
 // Write generated files to a project directory on disk.
 app.post('/api/write-project-files', (req, res) => {

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useApp } from '../../store/AppProvider';
+import ProjectPicker from '../ProjectPicker';
 
 function fmtDate(t: number): string {
   const d = new Date(t);
@@ -32,10 +33,16 @@ export default function OverviewTab() {
   if (!hasProject && s.messages.length === 0) {
     return (
       <div className="tab-pane">
-        <div className="pane-empty">
-          <div className="pane-empty-glyph">📋</div>
-          <p>项目概览</p>
-          <span>在左侧描述你的需求，这里会汇总项目的产品说明、技术栈、历史工作与记忆。</span>
+        <div className="pane-toolbar">
+          <span className="pane-title">项目概览</span>
+        </div>
+        <div className="pane-body overview-body">
+          <ProjectPicker />
+          <div className="ov-empty-hint">
+            <div className="pane-empty-glyph">📋</div>
+            <p>项目概览</p>
+            <span>在左侧描述你的需求，这里会汇总项目的产品说明、技术栈、历史工作与记忆。</span>
+          </div>
         </div>
       </div>
     );
@@ -48,6 +55,7 @@ export default function OverviewTab() {
         <span className="pane-sub">更新于 {fmtDate(s.updatedAt)}</span>
       </div>
       <div className="pane-body overview-body">
+        <ProjectPicker />
         <div className="ov-hero">
           <h2>{s.title}</h2>
           <div className="ov-badges">

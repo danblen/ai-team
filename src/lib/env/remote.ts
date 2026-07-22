@@ -16,11 +16,13 @@ export class RemoteEnvironment implements ExecutionEnvironment {
   private config: RemoteEnvConfig;
   private sid: string;
   private projectName: string;
+  private sessionWorkDir: string;
 
-  constructor(config: RemoteEnvConfig, sid: string, projectName?: string) {
+  constructor(config: RemoteEnvConfig, sid: string, projectName?: string, sessionWorkDir?: string) {
     this.config = config;
     this.sid = sid;
     this.projectName = projectName || '';
+    this.sessionWorkDir = sessionWorkDir || '';
   }
 
   async listAgents() {
@@ -59,8 +61,9 @@ export class RemoteEnvironment implements ExecutionEnvironment {
         task,
         cliId: agentId,
         sid: this.sid,
-        workDir: this.config.workDir || '',
+        workDir: this.sessionWorkDir || this.config.workDir || '',
         projectName: this.projectName,
+        direct: Boolean(this.sessionWorkDir),
       }),
       signal,
     });

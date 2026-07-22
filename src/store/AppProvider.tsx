@@ -23,17 +23,21 @@ import {
   loadAgents,
   loadCurrentId,
   loadEnvConfig,
+  loadLocalProjects,
   loadSessions,
   projectDirName,
   saveAgents,
   saveCurrentId,
   saveEnvConfig,
+  saveLocalProjects,
   saveSessions,
   uid,
 } from '../lib/storage';
+import type { LocalProject } from '../lib/storage';
 import { DEFAULT_AGENTS } from '../lib/agents';
 import type { EnvironmentConfig } from '../lib/env/types';
 import { createEnvironment } from '../lib/env';
+import type { RemoteProject } from '../lib/api';
 import { runCrew, parseEngineerOutput } from '../lib/orchestrator';
 import type { RunMode } from '../lib/orchestrator';
 import {
@@ -43,6 +47,10 @@ import {
   clearApiConfig,
   writeProjectFiles,
   readLocalDirFiles,
+  checkoutProject,
+  mergeProject,
+  checkoutLocalProject,
+  mergeLocalProject,
   getAuthToken,
   login as apiLogin,
   register as apiRegister,
@@ -89,6 +97,18 @@ interface AppState {
   setEnvConfig: (config: EnvironmentConfig) => void;
   /** 设置/清除本会话选定的本地工作目录（传 null 清除）。 */
   setSessionWorkDir: (id: string, dir: string | null) => void;
+  /** 远程模式：为会话绑定一个项目（checkout worktree 分支并锁定）。 */
+  bindSessionProject: (id: string, project: RemoteProject) => Promise<void>;
+  /** 远程模式：把当前会话分支合并到主干。 */
+  mergeSessionProject: (id: string) => Promise<void>;
+  /** 本地模式：已记录的历史项目（按名称）。 */
+  localProjects: LocalProject[];
+  /** 本地模式：为会话绑定一个本地项目（名称 + 仓库目录），创建 Git worktree 并记入注册表。 */
+  bindLocalProject: (id: string, name: string, repoDir: string) => Promise<void>;
+  /** 本地模式：设置开发方式（新建工作树 / 直接在当前分支）。仅在切出工作树前可切换。 */
+  setLocalDevMode: (id: string, mode: 'worktree' | 'direct') => void;
+  /** 本地模式：把当前会话的 worktree 分支合并回项目主干。 */
+  mergeLocalSession: (id: string) => Promise<void>;
   // auth (公共登录/注册，与执行环境无关)
   authEmail: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -142,6 +162,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [runs, setRuns] = useState<Record<string, RunState>>({});
   const [activeTab, setActiveTab] = useState<WorkTab>('overview');
   const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [localProjects, setLocalProjects] = useState<LocalProject[]>(() => loadLocalProjects());
 
   const abortRefs = useRef<Record<string, AbortController>>({});
   const liveContentRefs = useRef<Record<string, string>>({});
@@ -164,6 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => saveSessions(sessions), [sessions]);
   useEffect(() => saveAgents(agents), [agents]);
   useEffect(() => saveEnvConfig(envConfig), [envConfig]);
+  useEffect(() => saveLocalProjects(localProjects), [localProjects]);
   useEffect(() => {
     if (currentId) saveCurrentId(currentId);
   }, [currentId]);
@@ -305,6 +327,152 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [appendLog, patchCurrent],
   );
 
+  const bindSessionProject = useCallback(
+    async (id: string, project: RemoteProject) => {
+      appendLog(id, 'info', `正在为项目「${project.name}」创建工作树…`);
+      try {
+        const { workDir, branch } = await checkoutProject(project.id, id);
+        patchCurrent(id, (s) => ({
+          ...s,
+          projectId: project.id,
+          projectName: project.name,
+          workDir,
+          projectLocked: true,
+          merged: false,
+          updatedAt: Date.now(),
+        }));
+        appendLog(id, 'ok', `✔ 已绑定项目「${project.name}」，分支 ${branch}`);
+        // 载入 worktree 目录现有文件，让代码区直接“打开”它。
+        const files = await readLocalDirFiles(id, workDir);
+        if (files.length > 0) {
+          const hasRootHtml = files.some((f) => /^index\.html$/i.test(f.path));
+          const hasJsx = files.some((f) => /\.(jsx|tsx)$/i.test(f.path));
+          const framework: Framework = hasRootHtml && !hasJsx ? 'html' : 'react';
+          patchCurrent(id, (s) => ({ ...s, files, framework, updatedAt: Date.now() }));
+          appendLog(id, 'ok', `✔ 已载入项目中的 ${files.length} 个文件`);
+          if (id === currentIdRef.current) setActiveTab('code');
+        }
+      } catch (err) {
+        appendLog(id, 'error', (err as Error).message || '绑定项目失败');
+        throw err;
+      }
+    },
+    [appendLog, patchCurrent],
+  );
+
+  const mergeSessionProject = useCallback(
+    async (id: string) => {
+      const session = sessions.find((s) => s.id === id);
+      if (!session?.projectId) {
+        appendLog(id, 'error', '本会话未绑定项目，无法合并');
+        return;
+      }
+      appendLog(id, 'info', '正在合并到主干…');
+      try {
+        await mergeProject(session.projectId, id);
+        patchCurrent(id, (s) => ({ ...s, merged: true, updatedAt: Date.now() }));
+        appendLog(id, 'ok', '✔ 已合并到主干');
+      } catch (err) {
+        appendLog(id, 'error', (err as Error).message || '合并失败');
+        throw err;
+      }
+    },
+    [appendLog, patchCurrent, sessions],
+  );
+
+  // 本地模式：为会话绑定一个本地项目（名称 + 仓库主干目录）。
+  // 仅记入注册表并载入该目录代码；Git 工作树在会话开始（首次发送）时才切出。
+  const bindLocalProject = useCallback(
+    async (id: string, name: string, repoDir: string) => {
+      const dir = repoDir.trim();
+      if (!dir) return;
+      const finalName = name.trim() || dir.split('/').filter(Boolean).pop() || dir;
+      const now = Date.now();
+      // 记入/更新本地项目注册表（以仓库主干目录为键）。
+      setLocalProjects((prev) => {
+        const idx = prev.findIndex((p) => p.workDir === dir);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], name: finalName, updatedAt: now };
+          // 置顶最近使用。
+          const [item] = next.splice(idx, 1);
+          return [item, ...next];
+        }
+        return [
+          { id: uid('lp'), name: finalName, workDir: dir, createdAt: now, updatedAt: now },
+          ...prev,
+        ];
+      });
+
+      // 选定即绑定：以仓库目录作为主干展示其代码，workDir 暂等于主干（尚无工作树）。
+      // 默认采用「新建工作树」开发方式，可在概览卡片切换为「直接在当前分支」。
+      patchCurrent(id, (s) => ({
+        ...s,
+        projectName: finalName,
+        projectRoot: dir,
+        workDir: dir,
+        projectLocked: true,
+        localDevMode: s.localDevMode || 'worktree',
+        merged: false,
+        updatedAt: Date.now(),
+      }));
+      appendLog(id, 'info', `已选择项目「${finalName}」：${dir}`);
+      try {
+        // 载入目录现有文件（可在代码区浏览/选中），但不主动切换页面，保持在当前页。
+        const files = await readLocalDirFiles(id, dir);
+        if (files.length > 0) {
+          const hasRootHtml = files.some((f) => /^index\.html$/i.test(f.path));
+          const hasJsx = files.some((f) => /\.(jsx|tsx)$/i.test(f.path));
+          const framework: Framework = hasRootHtml && !hasJsx ? 'html' : 'react';
+          patchCurrent(id, (s) => ({ ...s, files, framework, updatedAt: Date.now() }));
+          appendLog(id, 'ok', `✔ 已载入项目中的 ${files.length} 个文件`);
+        }
+      } catch (err) {
+        appendLog(id, 'error', (err as Error).message || '读取项目文件失败');
+      }
+    },
+    [appendLog, patchCurrent],
+  );
+
+  // 本地模式：切换开发方式（仅在尚未切出工作树时允许）。
+  const setLocalDevMode = useCallback(
+    (id: string, mode: 'worktree' | 'direct') => {
+      patchCurrent(id, (s) => {
+        // 已切出工作树（workDir 与主干不同）后不再允许切换，避免状态混乱。
+        if (s.workDir && s.projectRoot && s.workDir !== s.projectRoot) return s;
+        return { ...s, localDevMode: mode, updatedAt: Date.now() };
+      });
+    },
+    [patchCurrent],
+  );
+
+  // 本地模式：把当前会话的 worktree 分支合并回项目主干。
+  const mergeLocalSession = useCallback(
+    async (id: string) => {
+      const session = sessions.find((s) => s.id === id);
+      if (!session?.projectRoot) {
+        appendLog(id, 'error', '本会话未绑定本地项目，无法合并');
+        return;
+      }
+      appendLog(id, 'info', '正在合并到主干…');
+      try {
+        await mergeLocalProject(session.projectRoot, id);
+        // 合并后移除了工作树：workDir 回退到主干，下次发送会重新切出新工作树。
+        patchCurrent(id, (s) => ({
+          ...s,
+          merged: true,
+          workDir: s.projectRoot || s.workDir,
+          updatedAt: Date.now(),
+        }));
+        appendLog(id, 'ok', '✔ 已合并到主干');
+      } catch (err) {
+        appendLog(id, 'error', (err as Error).message || '合并失败');
+        throw err;
+      }
+    },
+    [appendLog, patchCurrent, sessions],
+  );
+
   const stop = useCallback(() => {
     const id = currentIdRef.current;
     abortRefs.current[id]?.abort();
@@ -333,13 +501,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const send = useCallback(
-    (text: string, mode: RunMode = 'iterate') => {
+    (text: string, mode: RunMode = 'iterate', forcedWorkDir?: string) => {
       const goal = text.trim();
       const sid = current?.id;
       if (!goal || !sid) return;
-      if (runs[sid]?.running) return;
+      if (runs[sid]?.running && !forcedWorkDir) return;
 
       const session = sessions.find((s) => s.id === sid);
+
+      // 本地模式：会话开始时若尚未切出工作树（workDir 仍等于项目主干），
+      // 先从主干切出一份 Git 工作树再开发；完成后带着新 workDir 重新发起。
+      if (
+        !forcedWorkDir &&
+        envConfig.mode === 'local' &&
+        session?.projectRoot &&
+        session.localDevMode !== 'direct' &&
+        (!session.workDir || session.workDir === session.projectRoot)
+      ) {
+        const root = session.projectRoot;
+        setRun(sid, { running: true, error: null, live: null, liveFiles: [] });
+        appendLog(sid, 'info', '正在为本会话创建 Git 工作树…');
+        (async () => {
+          try {
+            const { workDir, branch } = await checkoutLocalProject(root, sid);
+            patchCurrent(sid, (s) => ({
+              ...s,
+              workDir,
+              projectLocked: true,
+              merged: false,
+              updatedAt: Date.now(),
+            }));
+            appendLog(sid, 'ok', `✔ 已创建工作树，分支 ${branch}`);
+            send(text, mode, workDir);
+          } catch (err) {
+            const msg = (err as Error).message || '创建工作树失败';
+            appendLog(sid, 'error', msg);
+            setRun(sid, { running: false, error: msg });
+          }
+        })();
+        return;
+      }
+
       const priorMessages = session ? session.messages : [];
       const currentFiles = session ? session.files : [];
       const effectiveMode: RunMode = currentFiles.length > 0 ? mode : 'replan';
@@ -352,7 +554,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           : session?.title || sid;
       const projectName = projectDirName(projectTitle, sid);
       // 本会话选定的本地目录（若有）：直接作为项目根，不再拼项目名子目录。
-      const sessionWorkDir = session?.workDir || '';
+      // 本地模式下优先使用刚切出的工作树目录（forcedWorkDir）。
+      const sessionWorkDir = forcedWorkDir || session?.workDir || '';
+
+      // 远程模式必须先在概览选择或新建项目（绑定 worktree 后才有 workDir）。
+      if (envConfig.mode === 'remote' && envConfig.remote.url && (!sessionWorkDir || !session?.projectId)) {
+        setRun(sid, { error: '请先在概览选择或新建项目' });
+        return;
+      }
 
       setRun(sid, { running: true, error: null, live: null, liveFiles: [] });
       appendMessage(sid, { id: uid('u'), kind: 'user', content: goal });
@@ -490,7 +699,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRun(sid, { live: { agent: remoteAgent, content: '', phase: 'thinking' }, liveFiles: [] });
         appendLog(sid, 'agent', `☁️ 远程 Agent (${host}) 开始在服务器上工作…`);
 
-        const env = createEnvironment(envConfig, sid, projectName);
+        const env = createEnvironment(envConfig, sid, projectName, sessionWorkDir || undefined);
         if (env) {
           (async () => {
             try {
@@ -780,6 +989,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // environment
     setEnvConfig,
     setSessionWorkDir,
+    bindSessionProject,
+    mergeSessionProject,
+    localProjects,
+    bindLocalProject,
+    setLocalDevMode,
+    mergeLocalSession,
     // auth
     authEmail,
     login,

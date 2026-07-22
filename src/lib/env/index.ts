@@ -31,7 +31,7 @@ export function createEnvironment(
     return new SSHEnvironment(config.ssh, sid);
   }
   if (config.mode === 'remote' && config.remote.url) {
-    return new RemoteEnvironment(config.remote, sid, projectName);
+    return new RemoteEnvironment(config.remote, sid, projectName, sessionWorkDir);
   }
   // builtin 引擎
   return null;

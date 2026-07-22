@@ -265,6 +265,90 @@ export async function getPublishInfo(sid: string, target?: PublishTarget): Promi
   return { id: data.id as string, url: absoluteUrl(base, data.url as string) };
 }
 
+// ---------- Projects (per-user registry + Git worktree, remote mode) ----------
+
+export interface RemoteProject {
+  id: string;
+  name: string;
+  framework?: Framework;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 列出当前用户的项目（远程模式下自动打到远端实例）。 */
+export async function listProjects(): Promise<RemoteProject[]> {
+  const res = await fetch(apiUrl('/api/projects'), { headers: apiHeaders() });
+  const data = await res.json().catch(() => ({ projects: [] }));
+  if (!res.ok) throw new Error(data.error || `读取项目失败 (${res.status})`);
+  return (data.projects || []) as RemoteProject[];
+}
+
+/** 新建项目（后端 git init + 初始提交）。 */
+export async function createProject(name: string): Promise<RemoteProject> {
+  const res = await fetch(apiUrl('/api/projects'), {
+    method: 'POST',
+    headers: apiHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ name }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.project) throw new Error(data.error || `新建项目失败 (${res.status})`);
+  return data.project as RemoteProject;
+}
+
+/** 为会话创建（或复用）该项目的 worktree 分支，返回其绝对工作目录。 */
+export async function checkoutProject(
+  id: string,
+  sid: string,
+): Promise<{ workDir: string; branch: string }> {
+  const res = await fetch(apiUrl(`/api/projects/${encodeURIComponent(id)}/checkout`), {
+    method: 'POST',
+    headers: apiHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ sid }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.workDir) throw new Error(data.error || `创建工作树失败 (${res.status})`);
+  return { workDir: data.workDir as string, branch: data.branch as string };
+}
+
+/** 把会话分支合并到主干并移除 worktree。 */
+export async function mergeProject(id: string, sid: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/projects/${encodeURIComponent(id)}/merge`), {
+    method: 'POST',
+    headers: apiHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ sid }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `合并到主干失败 (${res.status})`);
+}
+
+// ---------- Local Git worktree (本地模式，任意本地仓库目录) ----------
+
+/** 本地模式：为会话在指定本地仓库目录创建（或复用）worktree 分支。 */
+export async function checkoutLocalProject(
+  dir: string,
+  sid: string,
+): Promise<{ workDir: string; branch: string }> {
+  const res = await fetch(apiUrl('/api/local-git/checkout'), {
+    method: 'POST',
+    headers: apiHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ dir, sid }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.workDir) throw new Error(data.error || `创建工作树失败 (${res.status})`);
+  return { workDir: data.workDir as string, branch: data.branch as string };
+}
+
+/** 本地模式：把会话分支合并回该本地仓库的主干并移除 worktree。 */
+export async function mergeLocalProject(dir: string, sid: string): Promise<void> {
+  const res = await fetch(apiUrl('/api/local-git/merge'), {
+    method: 'POST',
+    headers: apiHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ dir, sid }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `合并到主干失败 (${res.status})`);
+}
+
 export interface StreamHandlers {
   onDelta: (text: string) => void;
   onDone: () => void;

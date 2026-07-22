@@ -1,4 +1,4 @@
-import type { AgentRole, Session } from './types';
+import type { AgentRole, Framework, Session } from './types';
 import { DEFAULT_AGENTS } from './agents';
 import { defaultEnvConfig } from './env/types';
 import type { EnvironmentConfig } from './env/types';
@@ -7,6 +7,7 @@ const K_SESSIONS = 'atoms.sessions.v1';
 const K_AGENTS = 'atoms.agents.v1';
 const K_CURRENT = 'atoms.current.v1';
 const K_ENV = 'atoms.env.v1';
+const K_LOCAL_PROJECTS = 'atoms.localprojects.v1';
 
 let seq = 0;
 export const uid = (p = 'id') => `${p}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
@@ -122,4 +123,27 @@ export function saveEnvConfig(config: EnvironmentConfig) {
     remote: { ...config.remote, token: '' },
   };
   write(K_ENV, safe);
+}
+
+/**
+ * 本地项目注册表：本地模式下由用户选定的「工作目录 + 名称」构成的历史项目，
+ * 持久化在浏览器 localStorage，供新会话在概览区直接选取继续开发。
+ */
+export interface LocalProject {
+  id: string;
+  name: string;
+  workDir: string;
+  framework?: Framework;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export function loadLocalProjects(): LocalProject[] {
+  const list = read<LocalProject[]>(K_LOCAL_PROJECTS, []);
+  if (!Array.isArray(list)) return [];
+  return list.filter((p) => p && typeof p.workDir === 'string' && typeof p.name === 'string');
+}
+
+export function saveLocalProjects(list: LocalProject[]) {
+  write(K_LOCAL_PROJECTS, list);
 }

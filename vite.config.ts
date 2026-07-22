@@ -5,7 +5,11 @@ const SERVER_PORT = process.env.SERVER_PORT || 5110;
 const FE_PORT = process.env.FE_PORT || 5100;
 
 export default defineConfig({
-  plugins: [react()],
+  // Exclude the vendored prebuilt codeview bundle from the React plugin's
+  // Babel pass: it's already compiled (no JSX) and ~2MB, so running Babel on
+  // it only slows dev and trips the "deoptimised styling" note. React itself
+  // stays external; only the transform is skipped.
+  plugins: [react({ exclude: /\/src\/vendor\// })],
   base: '/ai-team/',
   server: {
     port: Number(FE_PORT),

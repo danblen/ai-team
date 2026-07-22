@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import CodeViewer from '../CodeViewer';
 import { buildFileTree, fileIcon, firstFilePath, humanSize, languageOf } from '../../lib/files';
 import type { ProjectFile, TreeNode } from '../../lib/types';
+// CodeView UI is vendored as a prebuilt standalone bundle (all rendering
+// deps bundled, only React external) under src/vendor/codeview.
+import { CodeWorkspace, MemoryProvider } from '../../vendor/codeview/codeview';
+import '../../vendor/codeview/codeview.css';
 
 interface Props {
   files: ProjectFile[];
@@ -16,6 +20,15 @@ export default function CodeTab({ files, streaming, projectDir }: Props) {
 
   const active = files.find((f) => f.path === selected) || null;
 
+  // A MemoryProvider over the settled project snapshot. Recreated only when
+  // the file array reference changes (i.e. after a generation settles), so
+  // the workspace keeps its selection between unrelated re-renders.
+  const provider = useMemo(
+    () => (files.length > 0 ? new MemoryProvider(files) : null),
+    [files],
+  );
+  const providerKey = useMemo(() => `${files.length}:${files[0]?.path ?? ''}`, [files]);
+
   // Keep a valid selection as files change (first render / new generation).
   useEffect(() => {
     if (files.length === 0) {
@@ -26,12 +39,46 @@ export default function CodeTab({ files, streaming, projectDir }: Props) {
   }, [files, selected]);
 
   if (files.length === 0) {
+    // 区分两种空态：已选定工作目录但目录本身为空（不是 bug，是目录里真没文件），
+    // 与尚未选定目录 / 尚未生成。前者给出明确说明，避免被误以为读取失败。
     return (
       <div className="tab-pane">
         <div className="pane-empty">
           <div className="pane-empty-glyph">{'</>'}</div>
-          <p>代码编辑器</p>
-          <span>智能体生成应用后，项目源码会以文件树结构展示在这里，可点击查看每个文件。</span>
+          {projectDir ? (
+            <>
+              <p>该工作目录为空</p>
+              <span className="code-empty-dir" title={projectDir}>{projectDir}</span>
+              <span>此目录下暂无任何文件。让智能体生成应用后，源码会以文件树结构展示在这里。</span>
+            </>
+          ) : (
+            <>
+              <p>代码编辑器</p>
+              <span>智能体生成应用后，项目源码会以文件树结构展示在这里，可点击查看每个文件。</span>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Settled: hand the snapshot to the reusable codeview workspace ──
+  // While streaming we keep the lightweight per-line view below so the
+  // typewriter effect isn't disrupted; once the turn settles we render the
+  // full-featured tree + multi-type viewer + in-memory search.
+  if (!streaming && provider) {
+    return (
+      <div className="tab-pane code-tab codeview-host">
+        <div className="codeview-host-body">
+          <CodeWorkspace
+            provider={provider}
+            providerKey={providerKey}
+            rootName="项目文件"
+            layoutMode="left-only"
+            layoutSwitcher={false}
+            fullWidth
+            panels={{ search: true, git: false }}
+          />
         </div>
       </div>
     );

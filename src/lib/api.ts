@@ -157,6 +157,33 @@ export async function writeProjectFiles(files: ProjectFile[], projectDir: string
   });
 }
 
+/** 目录浏览：列出某本地目录下的子目录。path 为空时后端默认返回家目录。 */
+export interface LocalDirEntry {
+  name: string;
+  path: string;
+}
+export interface LocalDirListing {
+  path: string;
+  parent: string | null;
+  dirs: LocalDirEntry[];
+}
+export async function listLocalDirs(dirPath?: string): Promise<LocalDirListing> {
+  const qs = dirPath ? `?path=${encodeURIComponent(dirPath)}` : '';
+  const res = await fetch(apiUrl(`/api/env/local/dirs${qs}`), { headers: apiHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `读取目录失败 (${res.status})`);
+  return { path: data.path, parent: data.parent ?? null, dirs: (data.dirs || []) as LocalDirEntry[] };
+}
+
+/** 直接读取一个本地目录（作为项目根）下的文件。 */
+export async function readLocalDirFiles(sid: string, workDir: string): Promise<ProjectFile[]> {
+  const params = new URLSearchParams({ sid, workDir, direct: '1' });
+  const res = await fetch(apiUrl(`/api/env/local/files?${params}`), { headers: apiHeaders() });
+  const data = await res.json().catch(() => ({ files: [] }));
+  if (!res.ok) throw new Error(data.error || `读取目录文件失败 (${res.status})`);
+  return (data.files || []) as ProjectFile[];
+}
+
 
 /**
  * Ask the backend to build the given project files with Vite and serve them.

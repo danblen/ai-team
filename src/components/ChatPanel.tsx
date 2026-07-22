@@ -3,6 +3,7 @@ import type { ChatMessage, LiveTurn } from '../lib/types';
 import { parseEngineerOutput } from '../lib/orchestrator';
 import { EXAMPLES } from '../data/examples';
 import PromptInput from './PromptInput';
+import WorkspaceBar from './WorkspaceBar';
 import { useApp } from '../store/AppProvider';
 
 export default function ChatPanel() {
@@ -39,6 +40,7 @@ export default function ChatPanel() {
         )}
       </div>
 
+      <WorkspaceBar />
       <PromptInput
         streaming={app.running}
         canIterate={app.current.files.length > 0}

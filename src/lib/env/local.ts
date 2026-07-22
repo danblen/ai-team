@@ -12,11 +12,13 @@ export class LocalEnvironment implements ExecutionEnvironment {
   private sid: string;
   private workDir: string;
   private projectName: string;
+  private direct: boolean;
 
-  constructor(config: LocalEnvConfig, sid: string, projectName?: string) {
+  constructor(config: LocalEnvConfig, sid: string, projectName?: string, direct?: boolean) {
     this.sid = sid;
     this.workDir = config.workDir || '';
     this.projectName = projectName || '';
+    this.direct = Boolean(direct);
   }
 
   async listAgents() {
@@ -33,6 +35,7 @@ export class LocalEnvironment implements ExecutionEnvironment {
         sid: this.sid,
         workDir: this.workDir,
         projectName: this.projectName,
+        direct: this.direct,
       }),
       signal,
     });
@@ -43,6 +46,7 @@ export class LocalEnvironment implements ExecutionEnvironment {
     const params = new URLSearchParams({ sid: this.sid });
     if (this.workDir) params.set('workDir', this.workDir);
     if (this.projectName) params.set('projectName', this.projectName);
+    if (this.direct) params.set('direct', '1');
     const res = await fetch(`${BASE_PREFIX}/api/env/local/files?${params}`);
     const data = await res.json().catch(() => ({ files: [] }));
     return (data.files || []) as ProjectFile[];

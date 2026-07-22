@@ -36,9 +36,11 @@ function sanitizeName(name) {
  *   ~/ws/ai-team-output/<邮箱>/<项目名>
  * - base 用 path.resolve 处理，确保绝对路径不会被当作相对路径拼接；
  * - 未配置根目录时回退到仓库外的 WORKSPACES_DIR（~/ws/ai-team-output）；
- * - 未提供项目名时用 sid 兜底。
+ * - 未提供项目名时用 sid 兜底；
+ * - direct===true 且有 reqWorkDir 时，直接以该目录为项目根（不拼项目名）。
  */
-function resolveProjectDir(reqWorkDir, projectName, sid, email) {
+function resolveProjectDir(reqWorkDir, projectName, sid, email, direct) {
+  if (direct && reqWorkDir) return path.resolve(reqWorkDir);
   let base = reqWorkDir ? path.resolve(reqWorkDir) : WORKSPACES_DIR;
   if (!reqWorkDir && email) {
     base = path.join(WORKSPACES_DIR, sanitizeName(email));
@@ -102,13 +104,13 @@ export function mountEnv(app) {
   // ------ Local CLI run (SSE stream) ------
 
   app.post('/api/env/local/run', async (req, res) => {
-    const { task, cliId, sid, workDir: reqWorkDir, projectName } = req.body || {};
+    const { task, cliId, sid, workDir: reqWorkDir, projectName, direct } = req.body || {};
     if (!task || !cliId || !sid) {
       return res.status(400).json({ error: '缺少参数: task, cliId, sid' });
     }
 
-    // 在「工作根目录/项目名」子目录中执行，每个会话一个独立项目，避免混入根目录。
-    const workDir = resolveProjectDir(reqWorkDir, projectName, sid, req.user?.email);
+    // 在「工作根目录/项目名」子目录中执行；若 direct 则直接以选定目录为项目根。
+    const workDir = resolveProjectDir(reqWorkDir, projectName, sid, req.user?.email, direct);
     fs.mkdirSync(workDir, { recursive: true });
 
     // SSE setup
@@ -174,9 +176,10 @@ export function mountEnv(app) {
     const sid = req.query.sid;
     const reqWorkDir = req.query.workDir;
     const projectName = req.query.projectName;
+    const direct = req.query.direct === '1' || req.query.direct === 'true';
     if (!sid) return res.status(400).json({ error: '缺少 ?sid=' });
 
-    const workDir = resolveProjectDir(reqWorkDir, projectName, sid, req.user?.email);
+    const workDir = resolveProjectDir(reqWorkDir, projectName, sid, req.user?.email, direct);
     if (!fs.existsSync(workDir)) return res.json({ ok: true, files: [] });
 
     try {
@@ -185,6 +188,26 @@ export function mountEnv(app) {
     } catch (err) {
       res.status(500).json({ error: `读取工作目录失败: ${err.message}` });
     }
+  });
+
+  // ------ Browse local directories (for the per-session workspace picker) ------
+
+  app.get('/api/env/local/dirs', (req, res) => {
+    const raw = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+    const dir = raw ? path.resolve(raw) : os.homedir();
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err) {
+      return res.status(400).json({ error: `无法读取目录: ${err.message}` });
+    }
+    const dirs = entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+      .filter((e) => e.name !== 'node_modules' && e.name !== 'dist')
+      .map((e) => ({ name: e.name, path: path.join(dir, e.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const parent = path.dirname(dir);
+    res.json({ ok: true, path: dir, parent: parent === dir ? null : parent, dirs });
   });
 
   // ------ SSH: test connection ------

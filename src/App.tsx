@@ -35,9 +35,12 @@ export default function App() {
   const displayFiles =
     app.running && app.liveFiles.length ? app.liveFiles : app.current.files;
 
-  const projectDir = app.envConfig?.local?.workDir
-    ? `${app.envConfig.local.workDir}/${projectDirName(app.current.title, app.current.id)}`
-    : undefined;
+  // 会话选定目录时直接用它；否则沿用「工作根目录/项目名」。
+  const projectDir = app.current.workDir
+    ? app.current.workDir
+    : app.envConfig?.local?.workDir
+      ? `${app.envConfig.local.workDir}/${projectDirName(app.current.title, app.current.id)}`
+      : undefined;
 
   return (
     <div className={`app ${sidebarOpen ? '' : 'no-sidebar'}`}>

@@ -57,6 +57,8 @@ export interface Session {
   summary?: string;
   /** Terminal log lines accumulated during agent runs. */
   logs: LogEntry[];
+  /** 本会话选定的本地工作目录（绝对路径）；设置后直接作为项目根。 */
+  workDir?: string;
 }
 
 export type LogLevel = 'info' | 'agent' | 'ok' | 'error' | 'cmd';

@@ -537,6 +537,98 @@ button {
   text-align: center;
 }
 
+/* ---- Per-session workspace picker ---- */
+.workspace-bar-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 18px 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elev);
+  font-size: 12px;
+}
+
+.workspace-bar-pick .wsp-ico {
+  flex-shrink: 0;
+}
+
+.workspace-bar-pick .wsp-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  direction: rtl;
+  text-align: left;
+}
+
+.workspace-bar-pick .wsp-path.muted {
+  color: var(--text-faint);
+  direction: ltr;
+}
+
+.workspace-bar-pick .wsp-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ---- Directory browser modal ---- */
+.dir-modal {
+  width: min(560px, 92vw);
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+}
+
+.dir-path-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 18px 8px;
+}
+
+.dir-path-row .env-input {
+  flex: 1;
+}
+
+.dir-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 18px 8px;
+  min-height: 180px;
+}
+
+.dir-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dir-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dir-item:hover {
+  background: rgba(91, 158, 255, 0.1);
+}
+
+.dir-item.up {
+  color: var(--text-faint);
+}
+
 /* ---------------- Workspace ---------------- */
 .workspace {
   display: flex;

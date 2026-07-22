@@ -42,6 +42,7 @@ import {
   setApiConfig,
   clearApiConfig,
   writeProjectFiles,
+  readLocalDirFiles,
   getAuthToken,
   login as apiLogin,
   register as apiRegister,
@@ -86,6 +87,8 @@ interface AppState {
   resetAgents: () => void;
   // environment
   setEnvConfig: (config: EnvironmentConfig) => void;
+  /** 设置/清除本会话选定的本地工作目录（传 null 清除）。 */
+  setSessionWorkDir: (id: string, dir: string | null) => void;
   // auth (公共登录/注册，与执行环境无关)
   authEmail: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -270,6 +273,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const resetAgents = useCallback(() => setAgents(DEFAULT_AGENTS.map((a) => ({ ...a }))), []);
   const setEnvConfig = useCallback((config: EnvironmentConfig) => setEnvConfigState(config), []);
 
+  const setSessionWorkDir = useCallback(
+    (id: string, dir: string | null) => {
+      const workDir = dir?.trim() || undefined;
+      patchCurrent(id, (s) => ({ ...s, workDir, updatedAt: Date.now() }));
+      if (!workDir) {
+        appendLog(id, 'info', '已清除本会话工作目录，后续任务将自动创建项目目录');
+        return;
+      }
+      appendLog(id, 'info', `已选定工作目录：${workDir}`);
+      // 选定后立即载入该目录文件，让代码区直接“打开”它。
+      (async () => {
+        try {
+          const files = await readLocalDirFiles(id, workDir);
+          if (files.length > 0) {
+            const hasRootHtml = files.some((f) => /^index\.html$/i.test(f.path));
+            const hasJsx = files.some((f) => /\.(jsx|tsx)$/i.test(f.path));
+            const framework: Framework = hasRootHtml && !hasJsx ? 'html' : 'react';
+            patchCurrent(id, (s) => ({ ...s, files, framework, updatedAt: Date.now() }));
+            appendLog(id, 'ok', `✔ 已载入目录中的 ${files.length} 个文件`);
+          } else {
+            patchCurrent(id, (s) => ({ ...s, files: [], updatedAt: Date.now() }));
+            appendLog(id, 'info', '该目录暂无可展示的文件');
+          }
+          if (id === currentIdRef.current) setActiveTab('code');
+        } catch (err) {
+          appendLog(id, 'error', (err as Error).message || '载入目录文件失败');
+        }
+      })();
+    },
+    [appendLog, patchCurrent],
+  );
+
   const stop = useCallback(() => {
     const id = currentIdRef.current;
     abortRefs.current[id]?.abort();
@@ -316,6 +351,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ? goal.slice(0, 20)
           : session?.title || sid;
       const projectName = projectDirName(projectTitle, sid);
+      // 本会话选定的本地目录（若有）：直接作为项目根，不再拼项目名子目录。
+      const sessionWorkDir = session?.workDir || '';
 
       setRun(sid, { running: true, error: null, live: null, liveFiles: [] });
       appendMessage(sid, { id: uid('u'), kind: 'user', content: goal });
@@ -345,7 +382,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRun(sid, { live: { agent: cliAgent, content: '', phase: 'thinking' }, liveFiles: [] });
         appendLog(sid, 'agent', `⚡ CLI Agent 开始工作…`);
 
-        const env = createEnvironment(envConfig, sid, projectName);
+        const env = createEnvironment(envConfig, sid, projectName, sessionWorkDir || undefined);
         if (env) {
           (async () => {
             try {
@@ -684,10 +721,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }));
               appendLog(sid, 'ok', `✔ ${agent.name} 生成 ${parsed.files.length} 个文件`);
 
-              // 内置团队产出的代码仅在内存中，写入 <工作根目录>/<项目名> 磁盘目录持久化。
-              const workDir = envConfig.local.workDir;
-              if (workDir) {
-                const projectDir = `${workDir}/${projectName}`;
+              // 内置团队产出的代码仅在内存中，写入磁盘目录持久化。
+              // 会话选定目录时直接写入该目录，否则写入 <工作根目录>/<项目名>。
+              const projectDir = sessionWorkDir
+                ? sessionWorkDir
+                : envConfig.local.workDir
+                  ? `${envConfig.local.workDir}/${projectName}`
+                  : null;
+              if (projectDir) {
                 writeProjectFiles(parsed.files, projectDir).catch(() => {});
               }
 
@@ -738,6 +779,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     resetAgents,
     // environment
     setEnvConfig,
+    setSessionWorkDir,
     // auth
     authEmail,
     login,

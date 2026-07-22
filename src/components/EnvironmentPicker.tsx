@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import type { EnvironmentConfig } from '../lib/env/types';
 import EnvironmentConfigModal from './EnvironmentConfigModal';
 
@@ -7,8 +8,16 @@ interface Props {
   onChange: (config: EnvironmentConfig) => void;
 }
 
-const MODE_META: Record<EnvironmentConfig['mode'], { icon: string; label: string }> = {
-  local: { icon: '🖥', label: '本地' },
+/** 简洁线性电脑图标（本地模式）。 */
+const LocalIcon = (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="12" rx="1.5" />
+    <path d="M8 20h8M12 16v4" />
+  </svg>
+);
+
+const MODE_META: Record<EnvironmentConfig['mode'], { icon: ReactNode; label: string }> = {
+  local: { icon: LocalIcon, label: '本地' },
   ssh: { icon: '🔒', label: 'SSH' },
   remote: { icon: '☁️', label: '云端' },
 };
@@ -50,7 +59,6 @@ export default function EnvironmentPicker({ config, onChange }: Props) {
           <span className="env-picker-mode">{meta.label}</span>
           <span className="env-picker-summary">{summary(config)}</span>
         </span>
-        <span className="env-picker-caret">▾</span>
       </button>
 
       {open && (

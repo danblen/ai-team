@@ -109,8 +109,11 @@ function TreeItem({
     return (
       <div className="tree-node">
         <button className="tree-folder" style={pad} onClick={() => setOpen((v) => !v)}>
-          <span className="folder-caret">{open ? '▾' : '▸'}</span>
-          <span className="folder-ico">📁</span>
+          <span className={`folder-caret${open ? ' open' : ''}`}>
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+              <path d="M6 4l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
           <span className="folder-name">{node.name}</span>
         </button>
         {open && (

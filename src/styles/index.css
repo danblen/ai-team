@@ -1576,9 +1576,6 @@ button {
   color: var(--text);
   font-weight: 600;
 }
-.folder-ico {
-  font-size: 13px;
-}
 .tree-files {
   display: flex;
   flex-direction: column;
@@ -2010,11 +2007,17 @@ button {
   background: var(--bg-elev-2);
 }
 .folder-caret {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-faint);
   width: 10px;
   display: inline-flex;
   justify-content: center;
+  transition: transform 0.15s ease;
+  line-height: 1;
+}
+.folder-caret.open {
+  transform: rotate(90deg);
 }
 .folder-name {
   overflow: hidden;

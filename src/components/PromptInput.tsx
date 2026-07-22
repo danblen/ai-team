@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RunMode } from '../lib/orchestrator';
+import type { QueueItem } from '../store/AppProvider';
 
 interface Props {
   streaming: boolean;
   canIterate: boolean;
+  queue: QueueItem[];
+  onRemoveQueued: (itemId: string) => void;
   onSubmit: (prompt: string, mode: RunMode) => void;
   onStop: () => void;
 }
 
-export default function PromptInput({ streaming, canIterate, onSubmit, onStop }: Props) {
+export default function PromptInput({
+  streaming,
+  canIterate,
+  queue,
+  onRemoveQueued,
+  onSubmit,
+  onStop,
+}: Props) {
   const [value, setValue] = useState('');
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -20,9 +30,10 @@ export default function PromptInput({ streaming, canIterate, onSubmit, onStop }:
     ta.style.height = Math.min(ta.scrollHeight, 180) + 'px';
   }, [value]);
 
+  // 运行中提交则入队（由父组件决定），空闲则直接发送。始终允许提交。
   const send = () => {
     const text = value.trim();
-    if (!text || streaming) return;
+    if (!text) return;
     onSubmit(text, canIterate ? 'iterate' : 'replan');
     setValue('');
   };
@@ -36,25 +47,57 @@ export default function PromptInput({ streaming, canIterate, onSubmit, onStop }:
 
   return (
     <div className="composer">
+      {queue.length > 0 && (
+        <div className="queue-list">
+          <div className="queue-label">
+            <span className="queue-dot" /> 队列 · {queue.length} 条待执行
+          </div>
+          {queue.map((q, i) => (
+            <div key={q.id} className="queue-item" title={q.text}>
+              <span className="queue-index">{i + 1}</span>
+              <span className="queue-text">{q.text}</span>
+              <button
+                className="queue-remove"
+                title="从队列中移除"
+                onClick={() => onRemoveQueued(q.id)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="composer-box">
         <textarea
           ref={taRef}
           className="composer-input"
           placeholder={
-            canIterate
-              ? '继续描述新的需求，让智能体在当前项目上迭代…'
-              : '描述你想要的应用，例如：做一个待办清单… (Enter 发送 / Shift+Enter 换行)'
+            streaming
+              ? '继续输入将加入队列，前面的任务完成后自动执行… (Enter 入队)'
+              : canIterate
+                ? '继续描述新的需求，让智能体在当前项目上迭代…'
+                : '描述你想要的应用，例如：做一个待办清单… (Enter 发送 / Shift+Enter 换行)'
           }
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
-          disabled={streaming}
         />
         {streaming ? (
-          <button className="btn stop" onClick={onStop} title="停止生成">
-            <span className="stop-icon" /> 停止
-          </button>
+          <div className="composer-actions">
+            <button
+              className="btn send"
+              onClick={send}
+              disabled={!value.trim()}
+              title="加入队列"
+            >
+              <span className="queue-plus">＋</span>
+            </button>
+            <button className="btn stop" onClick={onStop} title="停止生成">
+              <span className="stop-icon" /> 停止
+            </button>
+          </div>
         ) : (
           <button className="btn send" onClick={send} disabled={!value.trim()} title="发送">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
@@ -69,7 +112,9 @@ export default function PromptInput({ streaming, canIterate, onSubmit, onStop }:
         )}
       </div>
       <div className="composer-hint">
-        由 AI 智能体驱动 · 生成的应用经后端 Vite 构建后在右侧预览
+        {streaming
+          ? '任务进行中 · 新消息将排队，完成后自动依次执行'
+          : '由 AI 智能体驱动 · 生成的应用经后端 Vite 构建后在右侧预览'}
       </div>
     </div>
   );

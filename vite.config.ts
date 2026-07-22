@@ -9,6 +9,21 @@ export default defineConfig({
   base: '/ai-team/',
   server: {
     port: Number(FE_PORT),
+    // 监听所有网卡（包含 IPv4 127.0.0.1），避免仅绑定 IPv6 [::1]
+    // 导致浏览器用 127.0.0.1 解析 localhost 时连不上。
+    host: true,
+    // 后端会把预览/发布/工作区文件写入 server 下的这些目录，它们都在
+    // Vite 的监听根内。若不忽略，构建预览时写入的大量文件会触发 Vite
+    // HMR 整页刷新——表现为「自动跳回概览、会话被刷新」。忽略即可修复。
+    watch: {
+      ignored: [
+        '**/server/.previews/**',
+        '**/server/.published/**',
+        '**/server/.workspaces/**',
+        '**/server/.data/**',
+        '**/server/.loop-data/**',
+      ],
+    },
     proxy: {
       // 前端在 base=/ai-team 下请求 /ai-team/api、/ai-team/preview，
       // 开发时去掉前缀再转发到后端（后端路由挂在根下）。

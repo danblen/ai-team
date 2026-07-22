@@ -200,7 +200,10 @@ const staticCache = new Map();
 function staticFor(dir) {
   let handler = staticCache.get(dir);
   if (!handler) {
-    handler = express.static(dir, { index: 'index.html', fallthrough: true });
+    // fallthrough:false —— 预览资源缺失时直接返回 404，而不是落到
+    // 后面的 SPA 入口（app.get('*')）。否则 iframe 会加载一份完整的主
+    // 应用副本，同源共享 localStorage 会覆盖掋当前会话。
+    handler = express.static(dir, { index: 'index.html', fallthrough: false });
     staticCache.set(dir, handler);
   }
   return handler;

@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ChatMessage, LiveTurn } from '../lib/types';
+import type { RunMode } from '../lib/orchestrator';
 import { parseEngineerOutput } from '../lib/orchestrator';
 import { EXAMPLES } from '../data/examples';
 import PromptInput from './PromptInput';
@@ -10,11 +11,21 @@ export default function ChatPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messages = app.current.messages;
   const isEmpty = messages.length === 0 && !app.running;
+  const busy = app.running || app.building;
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, app.live, app.error]);
+
+  // 运行中提交的消息入队，空闲时直接执行。
+  const handleSubmit = useCallback(
+    (text: string, mode: RunMode) => {
+      if (busy) app.enqueue(text, mode);
+      else app.send(text, mode);
+    },
+    [busy, app],
+  );
 
   return (
     <section className="chat">
@@ -40,9 +51,11 @@ export default function ChatPanel() {
       </div>
 
       <PromptInput
-        streaming={app.running}
+        streaming={busy}
         canIterate={app.current.files.length > 0}
-        onSubmit={app.send}
+        queue={app.queue}
+        onRemoveQueued={app.removeQueued}
+        onSubmit={handleSubmit}
         onStop={app.stop}
       />
     </section>

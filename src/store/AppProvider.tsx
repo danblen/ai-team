@@ -61,6 +61,13 @@ import {
 
 export type WorkTab = 'overview' | 'preview' | 'code' | 'cloud' | 'files' | 'terminal' | 'publish' | 'team';
 
+/** 一条排队中的待执行消息。 */
+export interface QueueItem {
+  id: string;
+  text: string;
+  mode: RunMode;
+}
+
 /** Per-session run state so multiple sessions can run concurrently. */
 interface RunState {
   running: boolean;
@@ -116,6 +123,14 @@ interface AppState {
   logout: () => void;
   // run actions
   send: (text: string, mode?: RunMode) => void;
+  /** 当前会话的待执行消息队列（运行中提交的消息会入队，依次自动执行）。 */
+  queue: QueueItem[];
+  /** 将一条消息加入当前会话的执行队列。 */
+  enqueue: (text: string, mode: RunMode) => void;
+  /** 从队列中移除一条待执行消息。 */
+  removeQueued: (itemId: string) => void;
+  /** 用当前会话的代码立即构建并预览（无需等待对话完成）。 */
+  previewNow: () => Promise<void>;
   stop: () => void;
   setActiveTab: (tab: WorkTab) => void;
   clearError: () => void;
@@ -151,6 +166,12 @@ function clip(s: string, n: number): string {
   return s.length <= n ? s : s.slice(0, n) + '…';
 }
 
+// 若本应用被嵌入 iframe（例如预览页），绝不写 localStorage，
+// 以免同源的第二份副本覆盖父窗口的会话数据。
+const IS_EMBEDDED =
+  typeof window !== 'undefined' &&
+  (window.top !== window.self || window.location.pathname.includes('/preview/'));
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<Session[]>(() => {
     const loaded = loadSessions();
@@ -163,6 +184,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeTab, setActiveTab] = useState<WorkTab>('overview');
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [localProjects, setLocalProjects] = useState<LocalProject[]>(() => loadLocalProjects());
+  // 每个会话的待执行消息队列。
+  const [queues, setQueues] = useState<Record<string, QueueItem[]>>({});
 
   const abortRefs = useRef<Record<string, AbortController>>({});
   const liveContentRefs = useRef<Record<string, string>>({});
@@ -182,12 +205,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     currentIdRef.current = current?.id || '';
   }, [current]);
 
-  useEffect(() => saveSessions(sessions), [sessions]);
-  useEffect(() => saveAgents(agents), [agents]);
-  useEffect(() => saveEnvConfig(envConfig), [envConfig]);
-  useEffect(() => saveLocalProjects(localProjects), [localProjects]);
   useEffect(() => {
-    if (currentId) saveCurrentId(currentId);
+    if (!IS_EMBEDDED) saveSessions(sessions);
+  }, [sessions]);
+  useEffect(() => {
+    if (!IS_EMBEDDED) saveAgents(agents);
+  }, [agents]);
+  useEffect(() => {
+    if (!IS_EMBEDDED) saveEnvConfig(envConfig);
+  }, [envConfig]);
+  useEffect(() => {
+    if (!IS_EMBEDDED) saveLocalProjects(localProjects);
+  }, [localProjects]);
+  useEffect(() => {
+    if (currentId && !IS_EMBEDDED) saveCurrentId(currentId);
   }, [currentId]);
 
   // Remote mode: redirect all /api/* calls to the remote instance.
@@ -499,6 +530,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [appendLog, patchCurrent, setRun],
   );
+
+  // 依据当前会话的代码立即构建预览（可在对话未结束时手动触发）。
+  const previewNow = useCallback(async () => {
+    const sid = currentIdRef.current;
+    const session = sessions.find((s) => s.id === sid);
+    if (!session) return;
+    const files = session.files || [];
+    if (files.length === 0) {
+      appendLog(sid, 'info', '暂无可预览的代码');
+      return;
+    }
+    if (runs[sid]?.building) return;
+    await runPreviewBuild(sid, files, session.framework);
+  }, [sessions, runs, runPreviewBuild, appendLog]);
 
   const send = useCallback(
     (text: string, mode: RunMode = 'iterate', forcedWorkDir?: string) => {
@@ -968,6 +1013,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [runs],
   );
 
+  // ---- 消息队列（类 Claude Code）----
+  const queue = current ? queues[current.id] || [] : [];
+
+  const enqueue = useCallback((text: string, mode: RunMode) => {
+    const t = text.trim();
+    if (!t) return;
+    const sid = currentIdRef.current;
+    if (!sid) return;
+    setQueues((prev) => ({
+      ...prev,
+      [sid]: [...(prev[sid] || []), { id: uid('q'), text: t, mode }],
+    }));
+  }, []);
+
+  const removeQueued = useCallback((itemId: string) => {
+    const sid = currentIdRef.current;
+    if (!sid) return;
+    setQueues((prev) => ({
+      ...prev,
+      [sid]: (prev[sid] || []).filter((q) => q.id !== itemId),
+    }));
+  }, []);
+
+  // 当前会话空闲（非运行且非构建）且队列非空时，自动取出下一条执行。
+  useEffect(() => {
+    const sid = current?.id;
+    if (!sid) return;
+    const r = runs[sid] || IDLE;
+    if (r.running || r.building) return;
+    const q = queues[sid] || [];
+    if (q.length === 0) return;
+    const [next, ...rest] = q;
+    setQueues((prev) => ({ ...prev, [sid]: rest }));
+    send(next.text, next.mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runs, queues, current]);
+
   const value: AppState = {
     sessions,
     current,
@@ -1002,6 +1084,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logout,
     // run actions
     send,
+    queue,
+    enqueue,
+    removeQueued,
+    previewNow,
     stop,
     setActiveTab,
     clearError,

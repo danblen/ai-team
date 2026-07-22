@@ -10,7 +10,7 @@ interface Props {
 const MODE_META: Record<EnvironmentConfig['mode'], { icon: string; label: string }> = {
   local: { icon: '🖥', label: '本地' },
   ssh: { icon: '🔒', label: 'SSH' },
-  remote: { icon: '☁️', label: '远程' },
+  remote: { icon: '☁️', label: '云端' },
 };
 
 /** 当前环境摘要（picker 按钮上显示的一行小字）。 */
@@ -42,7 +42,7 @@ export default function EnvironmentPicker({ config, onChange }: Props) {
       <button
         className="env-picker"
         type="button"
-        title="切换执行环境（本地 / SSH / 远程）"
+        title="切换执行环境（本地 / SSH / 云端）"
         onClick={() => setOpen(true)}
       >
         <span className="env-picker-icon">{meta.icon}</span>

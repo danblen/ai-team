@@ -61,7 +61,7 @@ export interface Session {
   workDir?: string;
   /** 本地模式：绑定项目的仓库主干目录（合并回该目录）；workDir 为其 worktree。 */
   projectRoot?: string;
-  /** 远程模式绑定的项目 id（后端 per-user 注册表）。 */
+  /** 云端模式绑定的项目 id（后端 per-user 注册表）。 */
   projectId?: string;
   /** 绑定项目的展示名。 */
   projectName?: string;

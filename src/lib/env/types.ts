@@ -1,6 +1,6 @@
 import type { ProjectFile } from '../types';
 
-/** 执行环境模式：本机 / SSH 远程服务器 / 远程部署的同款实例 */
+/** 执行环境模式：本机 / SSH 远程服务器 / 云端部署的同款实例 */
 export type EnvironmentMode = 'local' | 'ssh' | 'remote';
 
 /** Local 模式内部再分：内置多智能体团队 / 本机 CLI Agent（方案 A 整体替换） */
@@ -43,7 +43,7 @@ export interface ExecutionEnvironment {
   run(task: string, agentId: string, signal: AbortSignal): AsyncIterable<AgentEvent>;
   /** 当前 session 的文件从哪读（内存 / 磁盘 / 远程）。 */
   readFiles(sid: string): Promise<ProjectFile[]>;
-  /** 预览 URL 从哪来（本地构建 / 远程实例）。 */
+  /** 预览 URL 从哪来（本地构建 / 云端实例）。 */
   getPreviewUrl(sid: string): Promise<string | null>;
   healthCheck(): Promise<EnvHealth>;
 }

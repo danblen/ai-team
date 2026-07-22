@@ -18,7 +18,7 @@ export default function PublishTab() {
 
   const totalBytes = files.reduce((sum, f) => sum + f.content.length, 0);
 
-  // 远程模式发布到远端部署实例，链接才对外可访问；其余模式发到当前实例。
+  // 云端模式发布到远端部署实例，链接才对外可访问；其余模式发到当前实例。
   const target: PublishTarget | undefined =
     app.envConfig.mode === 'remote' && app.envConfig.remote.url
       ? { base: app.envConfig.remote.url, token: app.envConfig.remote.token }

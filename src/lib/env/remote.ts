@@ -92,9 +92,9 @@ export class RemoteEnvironment implements ExecutionEnvironment {
   async healthCheck(): Promise<EnvHealth> {
     try {
       const health = await fetchHealth();
-      return { ok: true, detail: `远程实例 · ${health.model}` };
+      return { ok: true, detail: `云端实例 · ${health.model}` };
     } catch (err) {
-      return { ok: false, detail: (err as Error).message || '无法连接远程实例' };
+      return { ok: false, detail: (err as Error).message || '无法连接云端实例' };
     }
   }
 }

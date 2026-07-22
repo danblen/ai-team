@@ -12,7 +12,7 @@ const DIR_SELECT_ALLOWED_EMAIL = 'siplgo@siplgo.xyz';
 
 /**
  * 概览区的项目 / 工作目录选择入口。
- * - 远程模式：列出「我的项目」（后端注册表），可新建或选已有项目；选定后为本会话
+ * - 云端模式：列出「我的项目」（后端注册表），可新建或选已有项目；选定后为本会话
  *   创建 Git worktree 分支并锁定，提供「合并到主干」按钮。
  * - 本地模式：选择任意工作目录，或从历史项目直接选取立即开发。
  */
@@ -21,11 +21,11 @@ export default function ProjectPicker() {
   const s = app.current;
   const mode = app.envConfig.mode;
 
-  // 已绑定远程注册表项目 → 远程锁定卡片。
+  // 已绑定云端注册表项目 → 云端锁定卡片。
   if (mode === 'remote' && s.projectId) {
     return <RemoteBoundCard />;
   }
-  // 以「目录」方式绑定（本地模式，或远程模式选服务器目录）→ 工作树 / 直接开发卡片。
+  // 以「目录」方式绑定（本地模式，或云端模式选服务器目录）→ 工作树 / 直接开发卡片。
   if (s.projectRoot) {
     return <LocalBoundCard />;
   }
@@ -40,7 +40,7 @@ export default function ProjectPicker() {
   return null; // SSH 等模式不在此处理
 }
 
-// ---------- 远程：已绑定项目卡片（锁定） ----------
+// ---------- 云端：已绑定项目卡片（锁定） ----------
 function RemoteBoundCard() {
   const app = useApp();
   const s = app.current;
@@ -110,34 +110,34 @@ function LocalBoundCard() {
       <h3>当前项目</h3>
       <div className="project-bound">
         <span className="project-bound-name">📦 {s.projectName || s.projectRoot || s.workDir}</span>
-        <span className="project-lock" title="已锁定，本会话不可再切换项目">🔒 已锁定</span>
       </div>
       {s.projectRoot && (
         <p className="env-hint" title={s.projectRoot}>主干：{s.projectRoot}</p>
       )}
 
-      {/* 开发方式选择：仅在尚未切出工作树前可切换。 */}
+      {/* 开发方式选择：分支 + 勾选 worktree，合为一体。仅在尚未切出工作树前可切换。 */}
       {!hasWorktree && (
-        <div className="dev-mode-choice">
-          <label className={`dev-mode-opt${devMode === 'worktree' ? ' active' : ''}`}>
+        <div className="dev-mode-bar">
+          <span className="dev-seg dev-seg-branch" title="基于该分支开发（勾选 worktree 时从此分支切出工作树）">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="6" y1="3" x2="6" y2="15" />
+              <circle cx="18" cy="6" r="3" />
+              <circle cx="6" cy="18" r="3" />
+              <path d="M18 9a9 9 0 0 1-9 9" />
+            </svg>
+            main
+          </span>
+          <label
+            className="dev-seg dev-seg-worktree"
+            title="勾选：开始会话时从主干切出独立工作树，可合并回主干；不勾选：直接在当前分支开发"
+          >
             <input
-              type="radio"
-              name={`devmode-${s.id}`}
-              checked={devMode === 'worktree'}
+              type="checkbox"
+              checked={!direct}
               disabled={app.running}
-              onChange={() => app.setLocalDevMode(s.id, 'worktree')}
+              onChange={(e) => app.setLocalDevMode(s.id, e.target.checked ? 'worktree' : 'direct')}
             />
-            <span>新建工作树开发（开始会话时从主干切出，可合并回主干）</span>
-          </label>
-          <label className={`dev-mode-opt${direct ? ' active' : ''}`}>
-            <input
-              type="radio"
-              name={`devmode-${s.id}`}
-              checked={direct}
-              disabled={app.running}
-              onChange={() => app.setLocalDevMode(s.id, 'direct')}
-            />
-            <span>直接在当前分支开发（不创建工作树）</span>
+            <span>worktree</span>
           </label>
         </div>
       )}
@@ -172,7 +172,7 @@ function LocalBoundCard() {
   );
 }
 
-// ---------- 远程：项目选择器 ----------
+// ---------- 云端：项目选择器 ----------
 function RemotePicker() {
   const app = useApp();
   const s = app.current;
@@ -256,7 +256,7 @@ function RemotePicker() {
     return (
       <section className="ov-card project-card">
         <h3>选择项目</h3>
-        <p className="env-hint warn">远程模式需先登录。请点击右上角「登录 / 注册」后再选择或新建项目。</p>
+        <p className="env-hint warn">云端模式需先登录。请点击右上角「登录 / 注册」后再选择或新建项目。</p>
       </section>
     );
   }

@@ -15,7 +15,7 @@ interface Props {
 const MODES: { id: EnvironmentMode; label: string; desc: string }[] = [
   { id: 'local', label: '本地', desc: '在你的电脑上运行，直接访问本地文件' },
   { id: 'ssh', label: 'SSH', desc: '连接到你自己的服务器（云主机 / 虚拟机 / 容器）' },
-  { id: 'remote', label: '远程', desc: '登录你部署的实例（如 siplgo.xyz），直接在服务器上跑 CLI 改代码' },
+  { id: 'remote', label: '云端', desc: '登录你部署的实例（如 siplgo.xyz），直接在服务器上跑 CLI 改代码' },
 ];
 
 export default function EnvironmentConfigModal({ config, onSave, onClose }: Props) {

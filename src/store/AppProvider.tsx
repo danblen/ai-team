@@ -104,9 +104,9 @@ interface AppState {
   setEnvConfig: (config: EnvironmentConfig) => void;
   /** 设置/清除本会话选定的本地工作目录（传 null 清除）。 */
   setSessionWorkDir: (id: string, dir: string | null) => void;
-  /** 远程模式：为会话绑定一个项目（checkout worktree 分支并锁定）。 */
+  /** 云端模式：为会话绑定一个项目（checkout worktree 分支并锁定）。 */
   bindSessionProject: (id: string, project: RemoteProject) => Promise<void>;
-  /** 远程模式：把当前会话分支合并到主干。 */
+  /** 云端模式：把当前会话分支合并到主干。 */
   mergeSessionProject: (id: string) => Promise<void>;
   /** 本地模式：已记录的历史项目（按名称）。 */
   localProjects: LocalProject[];
@@ -554,9 +554,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const session = sessions.find((s) => s.id === sid);
 
-      // 本地/远程模式：会话开始时若尚未切出工作树（workDir 仍等于项目主干），
+      // 本地/云端模式：会话开始时若尚未切出工作树（workDir 仍等于项目主干），
       // 先从主干切出一份 Git 工作树再开发；完成后带着新 workDir 重新发起。
-      // 远程模式下 checkoutLocalProject 会在应用所在服务器上切出工作树。
+      // 云端模式下 checkoutLocalProject 会在应用所在服务器上切出工作树。
       if (
         !forcedWorkDir &&
         (envConfig.mode === 'local' || envConfig.mode === 'remote') &&
@@ -603,7 +603,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // 本地模式下优先使用刚切出的工作树目录（forcedWorkDir）。
       const sessionWorkDir = forcedWorkDir || session?.workDir || '';
 
-      // 远程模式必须先在概览选择/新建项目，或选择服务器上的工作目录（绑定后才有 workDir）。
+      // 云端模式必须先在概览选择/新建项目，或选择服务器上的工作目录（绑定后才有 workDir）。
       if (
         envConfig.mode === 'remote' &&
         envConfig.remote.url &&
@@ -737,7 +737,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })();
         const remoteAgent: AgentRole = {
           id: 'remote-runner',
-          name: `远程 · ${host}`,
+          name: `云端 · ${host}`,
           emoji: '☁️',
           color: '#0ea5e9',
           goal: '',
@@ -747,7 +747,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
 
         setRun(sid, { live: { agent: remoteAgent, content: '', phase: 'thinking' }, liveFiles: [] });
-        appendLog(sid, 'agent', `☁️ 远程 Agent (${host}) 开始在服务器上工作…`);
+        appendLog(sid, 'agent', `☁️ 云端 Agent (${host}) 开始在服务器上工作…`);
 
         const env = createEnvironment(envConfig, sid, projectName, sessionWorkDir || undefined);
         if (env) {
@@ -777,9 +777,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     appendMessage(sid, {
                       id: uid('a'),
                       kind: 'agent',
-                      content: liveContentRefs.current[sid] || '远程执行完成',
+                      content: liveContentRefs.current[sid] || '云端执行完成',
                       agentId: 'remote-runner',
-                      agentName: `远程 · ${host}`,
+                      agentName: `云端 · ${host}`,
                       emoji: '☁️',
                       color: '#0ea5e9',
                       hasCode: files.length > 0,
@@ -795,12 +795,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         framework,
                         updatedAt: Date.now(),
                       }));
-                      appendLog(sid, 'ok', `✔ 远程生成 ${files.length} 个文件`);
+                      appendLog(sid, 'ok', `✔ 云端生成 ${files.length} 个文件`);
 
                       // 预览由远端构建，previewUrl 已被 RemoteEnvironment 拼成远端绝对地址。
                       if (previewUrl) {
                         patchCurrent(sid, (s) => ({ ...s, previewUrl }));
-                        appendLog(sid, 'ok', `✔ 远程预览已就绪`);
+                        appendLog(sid, 'ok', `✔ 云端预览已就绪`);
                         if (sid === currentIdRef.current) setActiveTab('preview');
                       }
                     }
@@ -808,14 +808,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     break;
                   }
                   case 'error':
-                    appendLog(sid, 'error', event.text || '远程执行失败');
-                    setRun(sid, { error: event.text || '远程执行失败' });
+                    appendLog(sid, 'error', event.text || '云端执行失败');
+                    setRun(sid, { error: event.text || '云端执行失败' });
                     break;
                 }
               }
             } catch (err) {
               if ((err as Error).name !== 'AbortError') {
-                const msg = (err as Error).message || '远程执行异常';
+                const msg = (err as Error).message || '云端执行异常';
                 appendLog(sid, 'error', msg);
                 setRun(sid, { error: msg });
               }

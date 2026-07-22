@@ -4,6 +4,7 @@ import type { RunMode } from '../lib/orchestrator';
 import { parseEngineerOutput } from '../lib/orchestrator';
 import { EXAMPLES } from '../data/examples';
 import PromptInput from './PromptInput';
+import { LogoIcon } from './LogoIcon';
 import { useApp } from '../store/AppProvider';
 
 export default function ChatPanel() {
@@ -162,12 +163,7 @@ function EmptyState({ onPick }: { onPick: (p: string) => void }) {
   return (
     <div className="empty">
       <div className="empty-hero">
-        <div className="empty-mark">
-          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
-            <path d="M12 2.5L21.1 7.8L21.1 18.2L12 23.5L2.9 18.2L2.9 7.8Z"/>
-            <circle cx="12" cy="13" r="3.5" fill="currentColor" stroke="none"/>
-          </svg>
-        </div>
+        <LogoIcon size={52} className="empty-mark" />
         <h1>多智能体协作，把想法变成应用</h1>
         <p>用一句话描述你想要的网页应用，产品、设计、评审、工程师智能体会依次协作，实时生成并预览。</p>
       </div>

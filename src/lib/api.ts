@@ -80,7 +80,7 @@ export interface AuthResult {
   token: string;
 }
 
-/** 邮箱+密码登录（远程模式下自动打到远端实例）。 */
+/** 邮箱+密码登录（云端模式下自动打到远端实例）。 */
 export async function login(email: string, password: string): Promise<AuthResult> {
   const res = await fetch(apiUrl('/api/auth/login'), {
     method: 'POST',
@@ -275,7 +275,7 @@ export interface RemoteProject {
   updatedAt: number;
 }
 
-/** 列出当前用户的项目（远程模式下自动打到远端实例）。 */
+/** 列出当前用户的项目（云端模式下自动打到远端实例）。 */
 export async function listProjects(): Promise<RemoteProject[]> {
   const res = await fetch(apiUrl('/api/projects'), { headers: apiHeaders() });
   const data = await res.json().catch(() => ({ projects: [] }));

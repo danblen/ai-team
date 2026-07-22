@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
 import WorkspacePanel from './components/WorkspacePanel';
 import SessionSidebar from './components/SessionSidebar';
@@ -42,15 +41,25 @@ export default function App() {
 
   return (
     <div className={`app ${sidebarOpen ? '' : 'no-sidebar'}`}>
-        <Header
-          health={health}
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((v) => !v)}
-          onOpenConfig={() => setConfigOpen(true)}
-          onOpenAuth={() => setAuthOpen(true)}
-        />
       <main className="workbench">
-        {sidebarOpen && <SessionSidebar />}
+        {sidebarOpen ? (
+          <SessionSidebar
+            health={health}
+            onToggleSidebar={() => setSidebarOpen(false)}
+            onOpenConfig={() => setConfigOpen(true)}
+            onOpenAuth={() => setAuthOpen(true)}
+          />
+        ) : (
+          <button
+            className="sidebar-expand"
+            title="展开侧栏"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18L15 12L9 6" />
+            </svg>
+          </button>
+        )}
         <ChatPanel />
         <WorkspacePanel
           files={displayFiles}

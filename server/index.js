@@ -31,7 +31,7 @@ app.use(cors({
   origin: ALLOWED_ORIGINS.includes('*') ? '*' : ALLOWED_ORIGINS,
   credentials: !ALLOWED_ORIGINS.includes('*'),
 }));
-app.use(express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '100mb' }));
 
 // Email/password auth routes (register / login / me). Mounted before the
 // auth gate so they stay reachable without a token.

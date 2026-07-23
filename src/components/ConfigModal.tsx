@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { updateConfig } from '../lib/api';
+import { getLlmConfig, saveLlmConfig } from '../lib/llm-config';
 import type { HealthInfo } from '../lib/types';
 
 interface Props {
@@ -8,15 +8,16 @@ interface Props {
 }
 
 export default function ConfigModal({ health, onClose }: Props) {
+  const saved = getLlmConfig();
   const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState(health?.baseUrl ?? '');
-  const [model, setModel] = useState(health?.model ?? '');
+  const [baseUrl, setBaseUrl] = useState(saved.baseUrl);
+  const [model, setModel] = useState(saved.model);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSave = Boolean(health) && !saving;
+  const canSave = !saving;
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setError(null);
     setSaving(true);
     try {
@@ -24,7 +25,7 @@ export default function ConfigModal({ health, onClose }: Props) {
       if (apiKey) body.apiKey = apiKey;
       if (baseUrl) body.baseUrl = baseUrl;
       if (model) body.model = model;
-      await updateConfig(body);
+      saveLlmConfig(body);
       onClose();
     } catch (err) {
       setError((err as Error).message || '保存失败');
@@ -32,6 +33,8 @@ export default function ConfigModal({ health, onClose }: Props) {
       setSaving(false);
     }
   };
+
+  const configured = Boolean(saved.apiKey);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -45,7 +48,7 @@ export default function ConfigModal({ health, onClose }: Props) {
           </div>
           <div className="config-head-text">
             <h2>LLM 配置</h2>
-            <p className="config-sub">修改 API Key、接口地址或模型名</p>
+            <p className="config-sub">API Key 仅保存在浏览器本地，不会上传到服务端</p>
           </div>
           <button className="config-close" onClick={onClose}>×</button>
         </div>
@@ -54,7 +57,7 @@ export default function ConfigModal({ health, onClose }: Props) {
           {!health && (
             <div className="config-error">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              <span>无法获取当前配置，请确认后端服务已启动。</span>
+              <span>无法连接后端服务，请确认已启动。</span>
             </div>
           )}
 
@@ -64,9 +67,9 @@ export default function ConfigModal({ health, onClose }: Props) {
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 API Key
               </label>
-              <span className={`cfg-badge ${health?.configured ? 'on' : 'off'}`}>
+              <span className={`cfg-badge ${configured ? 'on' : 'off'}`}>
                 <span className="cfg-dot" />
-                {health?.configured ? '已配置' : '未配置'}
+                {configured ? '已配置' : '未配置'}
               </span>
             </div>
             <input
@@ -74,7 +77,7 @@ export default function ConfigModal({ health, onClose }: Props) {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={health?.configured ? '留空则不修改' : 'sk-...'}
+              placeholder={configured ? '留空则不修改' : 'sk-...'}
               autoComplete="off"
               className="cfg-input"
             />

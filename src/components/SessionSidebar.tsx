@@ -2,6 +2,7 @@ import { memo, useState } from 'react';
 import { modeIcon } from './EnvironmentPicker';
 import { LogoIcon } from './LogoIcon';
 import { useApp } from '../store/AppProvider';
+import { getLlmConfig } from '../lib/llm-config';
 import type { HealthInfo } from '../lib/types';
 import type { EnvironmentConfig } from '../lib/env/types';
 
@@ -111,7 +112,8 @@ interface Props {
 export default function SessionSidebar({ health, onToggleSidebar, onOpenConfig, onOpenAuth }: Props) {
   const app = useApp();
   const { authEmail, logout } = app;
-  const configured = health?.configured;
+  const llmConfig = getLlmConfig();
+  const configured = Boolean(llmConfig.apiKey);
 
   return (
     <aside className="sidebar">
@@ -152,13 +154,13 @@ export default function SessionSidebar({ health, onToggleSidebar, onOpenConfig, 
         <button
           type="button"
           className={`status-pill ${configured ? 'ok' : 'warn'}`}
-          title={health ? `模型: ${health.model}\n服务: ${health.baseUrl}` : '无法连接后端服务'}
+          title={health ? `模型: ${llmConfig.model}\n服务: ${llmConfig.baseUrl}` : '无法连接后端服务'}
           onClick={onOpenConfig}
         >
           <span className="status-dot" />
           {health
             ? configured
-              ? `已连接 · ${health.model}`
+              ? `已连接 · ${llmConfig.model}`
               : '未配置 API Key'
             : '后端未连接'}
         </button>

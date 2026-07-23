@@ -19,9 +19,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 
 const PORT = process.env.SERVER_PORT || 5025;
-let API_KEY = process.env.OPENAI_API_KEY || '';
-let BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
-let MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const API_TOKEN = process.env.API_TOKEN || '';
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim());
 
@@ -84,70 +81,22 @@ app.post('/api/write-project-files', (req, res) => {
   }
 });
 
-// --- Health / config probe (never leaks the key itself) ---
+// --- Health probe ---
 app.get('/api/health', (_req, res) => {
-  res.json({
-    ok: true,
-    configured: Boolean(API_KEY),
-    model: MODEL,
-    baseUrl: BASE_URL,
-    authRequired: authRequired(),
-  });
-});
-
-/** Update LLM config at runtime (also persists to .env). */
-app.post('/api/config', (req, res) => {
-  const { apiKey, baseUrl, model } = req.body || {};
-
-  if (apiKey !== undefined) {
-    if (typeof apiKey !== 'string') {
-      return res.status(400).json({ error: 'API Key 格式无效' });
-    }
-    API_KEY = apiKey.trim();
-  }
-  if (baseUrl !== undefined) {
-    if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
-      return res.status(400).json({ error: 'Base URL 不能为空' });
-    }
-    BASE_URL = baseUrl.trim().replace(/\/$/, '');
-  }
-  if (model !== undefined) {
-    if (typeof model !== 'string' || !model.trim()) {
-      return res.status(400).json({ error: 'Model 不能为空' });
-    }
-    MODEL = model.trim();
-  }
-
-  // Persist to .env for restart survival
-  try {
-    const envPath = path.join(ROOT, '.env');
-    let raw = fs.readFileSync(envPath, 'utf-8');
-
-    const replaceVar = (key, value) => {
-      const re = new RegExp(`^\\s*${key}\\s*=.*$`, 'm');
-      if (re.test(raw)) {
-        raw = raw.replace(re, `${key}=${value}`);
-      } else {
-        raw += `\n${key}=${value}`;
-      }
-    };
-    replaceVar('OPENAI_API_KEY', API_KEY);
-    replaceVar('OPENAI_BASE_URL', BASE_URL);
-    replaceVar('OPENAI_MODEL', MODEL);
-    fs.writeFileSync(envPath, raw, 'utf-8');
-  } catch (err) {
-    console.error('Failed to persist .env:', err.message);
-    // Non-fatal: in-memory config is still updated
-  }
-
-  res.json({ ok: true, configured: Boolean(API_KEY), model: MODEL, baseUrl: BASE_URL });
+  res.json({ ok: true, authRequired: authRequired() });
 });
 
 /**
  * Shared helper: open an SSE stream to the browser and pipe an
  * OpenAI-compatible streaming chat completion through it.
  */
-async function streamCompletion(res, messages) {
+async function streamCompletion(res, messages, { apiKey, baseUrl, model }) {
+  if (!apiKey) {
+    res.write(`event: error\ndata: ${JSON.stringify({ message: '请先配置 API Key' })}\n\n`);
+    return res.end();
+  }
+  const cleanBase = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const cleanModel = model || 'gpt-4o-mini';
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -167,13 +116,13 @@ async function streamCompletion(res, messages) {
   });
 
   try {
-    const upstream = await fetch(`${BASE_URL}/chat/completions`, {
+    const upstream = await fetch(`${cleanBase}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model: MODEL, stream: true, temperature: 0.7, messages }),
+      body: JSON.stringify({ model: cleanModel, stream: true, temperature: 0.7, messages }),
       signal: controller.signal,
     });
 
@@ -218,27 +167,11 @@ async function streamCompletion(res, messages) {
   }
 }
 
-function ensureConfigured(res) {
-  if (!API_KEY) {
-    res.status(500).json({
-      error: '未配置 OPENAI_API_KEY。请复制 .env.example 为 .env 并填入你的 API Key。',
-    });
-    return false;
-  }
-  return true;
-}
-
-/**
- * Generic chat endpoint used by the multi-agent orchestrator.
- * Body: { system: string, messages: [{role, content}] }
- * The frontend fully controls the prompt so each agent can have its own role.
- */
 app.post('/api/chat', async (req, res) => {
-  const { system, messages } = req.body || {};
+  const { system, messages, apiKey, baseUrl, model } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: '缺少 messages 参数' });
   }
-  if (!ensureConfigured(res)) return;
 
   const full = [];
   if (system && typeof system === 'string') full.push({ role: 'system', content: system });
@@ -247,7 +180,7 @@ app.post('/api/chat', async (req, res) => {
       full.push({ role: m.role, content: String(m.content ?? '') });
     }
   }
-  await streamCompletion(res, full);
+  await streamCompletion(res, full, { apiKey, baseUrl, model });
 });
 
 /**
@@ -255,12 +188,11 @@ app.post('/api/chat', async (req, res) => {
  * Body: { prompt: string, history: [{role, content}] }
  */
 app.post('/api/generate', async (req, res) => {
-  const { prompt, history } = req.body || {};
+  const { prompt, history, apiKey, baseUrl, model } = req.body || {};
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: '缺少 prompt 参数' });
   }
-  if (!ensureConfigured(res)) return;
-  await streamCompletion(res, buildMessages(history, prompt));
+  await streamCompletion(res, buildMessages(history, prompt), { apiKey, baseUrl, model });
 });
 
 // --- Serve the built frontend in production ---
@@ -274,6 +206,5 @@ if (fs.existsSync(distDir)) {
 
 app.listen(PORT, () => {
   console.log(`\n  Atoms Demo backend running: http://localhost:${PORT}`);
-  console.log(`  LLM: model=${MODEL} baseUrl=${BASE_URL} key=${API_KEY ? '已配置' : '未配置 ⚠️'}`);
   console.log(`  Remote access: token=${API_TOKEN ? '已设置' : '未设置（开放）'} origins=${ALLOWED_ORIGINS.join(',')}\n`);
 });

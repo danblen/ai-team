@@ -1,5 +1,6 @@
 import type { Framework, HealthInfo, ProjectFile } from './types';
 import type { AvailableAgent, EnvironmentMode } from './env/types';
+import { getLlmConfig } from './llm-config';
 
 // ---------- Remote / configurable base URL ----------
 
@@ -119,22 +120,6 @@ export async function fetchHealth(): Promise<HealthInfo> {
   const res = await fetch(apiUrl('/api/health'), { headers: apiHeaders() });
   if (!res.ok) throw new Error('健康检查失败');
   return res.json();
-}
-
-/** Update LLM config on the server (apiKey, baseUrl, model). */
-export async function updateConfig(config: {
-  apiKey?: string;
-  baseUrl?: string;
-  model?: string;
-}): Promise<HealthInfo> {
-  const res = await fetch(apiUrl('/api/config'), {
-    method: 'POST',
-    headers: apiHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(config),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `保存配置失败 (${res.status})`);
-  return data as HealthInfo;
 }
 
 /** 检测某个执行环境下可用的 Agent（内置团队 / 已安装 CLI）。 */
@@ -405,12 +390,20 @@ export async function streamChat(
 ): Promise<void> {
   const { onDelta, onDone, onError, signal } = handlers;
 
+  const llmConfig = getLlmConfig();
+
   let res: Response;
   try {
     res = await fetch(apiUrl('/api/chat'), {
       method: 'POST',
       headers: apiHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ system, messages }),
+      body: JSON.stringify({
+        system,
+        messages,
+        apiKey: llmConfig.apiKey,
+        baseUrl: llmConfig.baseUrl,
+        model: llmConfig.model,
+      }),
       signal,
     });
   } catch (err) {

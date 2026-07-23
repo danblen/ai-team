@@ -110,9 +110,6 @@ export interface TreeNode {
 
 export interface HealthInfo {
   ok: boolean;
-  configured: boolean;
-  model: string;
-  baseUrl: string;
   /** 后端是否强制登录（有用户/配置了令牌时为 true）。 */
   authRequired?: boolean;
 }

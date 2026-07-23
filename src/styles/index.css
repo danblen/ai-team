@@ -3198,3 +3198,19 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.version-tag {
+  position: fixed;
+  right: 8px;
+  bottom: 4px;
+  font-size: 10px;
+  color: var(--text-faint);
+  opacity: 0.4;
+  pointer-events: auto;
+  user-select: text;
+  z-index: 9999;
+  line-height: 1;
+}
+.version-tag:hover {
+  opacity: 0.8;
+}

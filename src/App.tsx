@@ -96,6 +96,7 @@ export default function App() {
         />
       )}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      <div className="version-tag" title={`Deploy: ${__COMMIT_HASH__}`}>{__COMMIT_HASH__}</div>
     </div>
   );
 }

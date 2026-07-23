@@ -63,7 +63,7 @@ jobs:
           port: 22
           script: |
             cd /home/ec2-user/WS/ai-team
-            git fetch origin main && git reset --hard origin/main
+            git pull --no-rebase origin main
             npm ci
             npm run build
             pm2 restart ai-team || pm2 start npm --name ai-team -- run start

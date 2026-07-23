@@ -646,16 +646,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // 本地模式下优先使用刚切出的工作树目录（forcedWorkDir）。
       const sessionWorkDir = forcedWorkDir || session?.workDir || '';
 
-      // 云端模式必须先在概览选择/新建项目，或选择服务器上的工作目录（绑定后才有 workDir）。
-      if (
-        cfg.mode === 'remote' &&
-        cfg.remote.url &&
-        (!sessionWorkDir || (!session?.projectId && !session?.projectRoot))
-      ) {
-        setRun(sid, { error: '请先在概览选择项目或工作目录' });
-        return;
-      }
-
       setRun(sid, { running: true, error: null, live: null, liveFiles: [] });
       appendMessage(sid, { id: uid('u'), kind: 'user', content: goal });
       appendLog(sid, 'cmd', `新任务：${goal}`);

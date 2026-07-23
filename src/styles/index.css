@@ -3156,10 +3156,11 @@ button {
   margin-top: 4px;
 }
 .project-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  width: fit-content;
+  min-width: 120px;
   text-align: left;
   padding: 9px 12px;
   border-radius: 10px;

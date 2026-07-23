@@ -468,6 +468,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const framework: Framework = hasRootHtml && !hasJsx ? 'html' : 'react';
           patchCurrent(id, (s) => ({ ...s, files, framework, updatedAt: Date.now() }));
           appendLog(id, 'ok', `✔ 已载入项目中的 ${files.length} 个文件`);
+        } else {
+          // 目录为空：显式清空，避免从有内容目录切换过来时残留旧文件，
+          // 并给出明确日志（而不是让代码区静默地空白）。
+          patchCurrent(id, (s) => ({ ...s, files: [], updatedAt: Date.now() }));
+          appendLog(id, 'info', '该目录为空，暂无可展示的文件');
         }
       } catch (err) {
         appendLog(id, 'error', (err as Error).message || '读取项目文件失败');

@@ -56,7 +56,9 @@ export function scanWorkspace(dir) {
       return; // permission issues, skip
     }
     for (const entry of entries) {
-      if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.git') continue;
+      if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.git'
+        || entry.name === '.published' || entry.name === '.previews'
+        || entry.name === '.workspaces' || entry.name === '.loop-data') continue;
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) walk(full);
       else if (entry.isFile()) {

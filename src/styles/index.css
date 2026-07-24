@@ -541,13 +541,6 @@ button {
   background: currentColor;
 }
 
-.composer-hint {
-  margin-top: 9px;
-  font-size: 11px;
-  color: var(--text-faint);
-  text-align: center;
-}
-
 /* ---- 消息队列（类 Claude Code）---- */
 .composer-actions {
   display: flex;

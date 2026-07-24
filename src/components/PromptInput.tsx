@@ -103,11 +103,6 @@ export default function PromptInput({
           </button>
         )}
       </div>
-      <div className="composer-hint">
-        {streaming
-          ? '任务进行中 · 新消息将排队，完成后自动依次执行'
-          : '由 AI 智能体驱动 · 生成的应用经后端 Vite 构建后在右侧预览'}
-      </div>
     </div>
   );
 }

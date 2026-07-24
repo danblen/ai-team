@@ -50,15 +50,6 @@ export default function RemoteForm({ config, onChange }: Props) {
         <p className="env-hint">需已在云端服务器安装。任务将在远端由该 CLI 执行。</p>
       </div>
 
-      <div className="env-field">
-        <label className="env-label">云端工作目录（可选）</label>
-        <input
-          className="env-input"
-          placeholder="留空则使用服务端默认工作区"
-          value={config.workDir || ''}
-          onChange={(e) => onChange({ workDir: e.target.value })}
-        />
-      </div>
     </div>
   );
 }

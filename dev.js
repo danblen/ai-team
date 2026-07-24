@@ -5,7 +5,7 @@ function portAvailable(port) {
   return new Promise((resolve) => {
     const s = net.createServer();
     s.on('error', () => resolve(false));
-    s.listen(port, '0.0.0.0', () => {
+    s.listen({ port, host: '0.0.0.0', reuseAddr: true }, () => {
       s.close();
       resolve(true);
     });

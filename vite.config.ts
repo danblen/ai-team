@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 
 const SERVER_PORT = process.env.SERVER_PORT || 5110;
 const FE_PORT = process.env.FE_PORT || 5100;
+const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
 let GIT_COMMIT = 'unknown';
 let BUILD_NUM = '0';
 try {
@@ -21,6 +23,7 @@ export default defineConfig({
   define: {
     __COMMIT_HASH__: JSON.stringify(GIT_COMMIT),
     __BUILD_NUM__: JSON.stringify(BUILD_NUM),
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
   server: {
     port: Number(FE_PORT),

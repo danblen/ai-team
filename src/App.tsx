@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { version } from '../package.json';
 import ChatPanel from './components/ChatPanel';
 import WorkspacePanel from './components/WorkspacePanel';
 import SessionSidebar from './components/SessionSidebar';
@@ -97,7 +96,7 @@ export default function App() {
         />
       )}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
-      <div className="version-tag" title={`Deploy: ${__COMMIT_HASH__}`}>v{version}.b{__BUILD_NUM__}</div>
+      <div className="version-tag" title={`Deploy: ${__COMMIT_HASH__}`}>v{__APP_VERSION__}.b{__BUILD_NUM__}</div>
     </div>
   );
 }

@@ -204,7 +204,10 @@ export function spawnAsUser(binPath, args, opts, uid) {
   if (IS_LINUX && uid !== null) {
     // 每个沙箱用户使用独立的 HOME 目录，避免多用户竞争同一个 /tmp
     const sandboxHome = `/tmp/sandbox-${uid}`;
-    try { fs.mkdirSync(`${sandboxHome}/.local/share`, { recursive: true }); } catch {}
+    try {
+      fs.mkdirSync(`${sandboxHome}/.local/share`, { recursive: true });
+      execSync(`chown -R ${uid}:${uid} "${sandboxHome}"`, { stdio: 'ignore', timeout: 5000 });
+    } catch {}
     return spawn(binPath, args, {
       ...opts,
       uid,

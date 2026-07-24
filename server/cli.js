@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import { spawnAsUser } from './user-isolate.js';
 
 // Strip ANSI escape codes from CLI output (colors, cursor movement, etc.)
 function stripAnsi(str) {
@@ -106,6 +107,7 @@ function _resolveBin(def) {
  * @param {(text: string) => void} callbacks.onDelta - stdout text chunk
  * @param {(text: string) => void} callbacks.onStatus - stderr / status info
  * @param {AbortSignal} [callbacks.signal] - optional abort signal
+ * @param {number | null} [callbacks.uid] - sandbox user UID (null = run as current user)
  * @returns {Promise<number>} exit code
  */
 export function runCLI(cliId, task, workDir, callbacks) {
@@ -118,12 +120,10 @@ export function runCLI(cliId, task, workDir, callbacks) {
 
   const args = def.args(task, workDir);
 
-  const child = spawn(binPath, args, {
+  const child = spawnAsUser(binPath, args, {
     cwd: workDir,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env },
-    shell: false,
-  });
+  }, callbacks.uid ?? null);
 
   let aborted = false;
   if (callbacks.signal) {

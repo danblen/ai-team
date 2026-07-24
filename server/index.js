@@ -18,7 +18,7 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 
-const PORT = process.env.SERVER_PORT || 5025;
+const PORT = process.env.SERVER_PORT || 5110;
 const API_TOKEN = process.env.API_TOKEN || '';
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim());
 

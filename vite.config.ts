@@ -4,7 +4,10 @@ import { execSync } from 'child_process';
 
 const SERVER_PORT = process.env.SERVER_PORT || 5110;
 const FE_PORT = process.env.FE_PORT || 5100;
-const GIT_COMMIT = execSync('git rev-parse --short HEAD').toString().trim();
+let GIT_COMMIT = 'unknown';
+try {
+  GIT_COMMIT = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+} catch {} // git may not be available (e.g. Docker build)
 
 export default defineConfig({
   // Exclude the vendored prebuilt codeview bundle from the React plugin's

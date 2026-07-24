@@ -6,6 +6,7 @@ import { runCLI, scanWorkspace } from './cli.js';
 import { startDevServer } from './preview-dev.js';
 import { runSSHAndSync, testSSH } from './ssh.js';
 import { ensureAdminForSensitive } from './auth.js';
+import { ensureIsolatedUser, secureWorkspace, removeIsolatedUser } from './user-isolate.js';
 
 // 本机可被探测到的 CLI Agent 清单。
 const KNOWN_CLIS = [
@@ -143,10 +144,22 @@ export function mountEnv(app) {
     try {
       sendSSE(res, 'status', { text: `正在 ${workDir} 中用 ${cliId} 执行任务…` });
 
+      // 为用户会话分配沙箱用户，实现文件系统隔离
+      const { uid, ok: isolateOk } = ensureIsolatedUser(sid);
+      if (!isolateOk) {
+        sendSSE(res, 'error', { text: '沙箱用户池已满，无法执行新任务。请稍后再试或关闭未使用的会话。' });
+        return res.end();
+      }
+      if (uid !== null) {
+        secureWorkspace(workDir, uid);
+        sendSSE(res, 'status', { text: `沙箱 UID ${uid} · 工作目录已隔离` });
+      }
+
       const exitCode = await runCLI(cliId, task, workDir, {
         onDelta: (text) => sendSSE(res, 'delta', { text }),
         onStatus: (text) => sendSSE(res, 'status', { text }),
         signal: abortController.signal,
+        uid,
       });
 
       if (exitCode !== 0) {
@@ -298,5 +311,13 @@ export function mountEnv(app) {
       if (!res.writableEnded) res.end();
       res.off('close', onClose);
     }
+  });
+
+  // ------ Cleanup: release a session's sandbox user ------
+
+  app.delete('/api/env/local/sandbox/:sid', (req, res) => {
+    const { sid } = req.params;
+    removeIsolatedUser(sid);
+    res.json({ ok: true });
   });
 }

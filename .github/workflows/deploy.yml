@@ -62,7 +62,7 @@ jobs:
           key: ${{ secrets.AWS_SSH_KEY }}
           port: 22
           script: |
-            cd /home/ec2-user/WS/aiteam
+            cd /home/ec2-user/ws/aiteam
             git pull --no-rebase origin main
             docker build -t aiteam .
             docker stop aiteam || true

@@ -12,8 +12,8 @@ FROM node:22-bookworm-slim
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y git sudo && rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI globally
-RUN npm install -g @anthropic-ai/claude-code
+# Install CLI tools
+RUN npm install -g @anthropic-ai/claude-code opencode-ai
 
 # Pre-create sandbox users for isolation (10000 ~ 10199)
 RUN for i in $(seq 10000 10199); do \

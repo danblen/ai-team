@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import os from 'node:os';
 import { runCLI, scanWorkspace } from './cli.js';
@@ -20,6 +21,8 @@ const KNOWN_CLIS = [
  * 必须位于应用仓库之外：否则 CLI（如 OpenCode）向上探测项目根时会读到
  * aiteam 自身源码。放到本应用的同级目录 aiteamoutput 下。
  */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 export const WORKSPACES_DIR = path.resolve(__dirname, '..', '..', 'aiteamoutput');
 fs.mkdirSync(WORKSPACES_DIR, { recursive: true });
 

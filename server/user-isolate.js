@@ -207,11 +207,17 @@ export function spawnAsUser(binPath, args, opts, uid) {
       uid,
       gid: uid,
       // Clean environment: don't leak secrets as the sandbox user
+      // 但透传 AI 模型相关的环境变量，确保 CLI 能拿到 API Key 和模型配置
       env: {
         HOME: '/tmp',
         PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
         TERM: 'dumb',
         npm_config_cache: `/tmp/.npm-${uid}`,
+        // AI provider env vars needed by CLI tools
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+        OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || '',
+        OPENAI_MODEL: process.env.OPENAI_MODEL || '',
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
       },
     });
   }

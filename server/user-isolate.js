@@ -25,6 +25,13 @@ function log(...args) {
 function createLinuxUser(uid) {
   const name = `sandbox-${uid}`;
   try {
+    // 用户已存在（Docker 构建时预创建了所有沙箱用户），直接复用。
+    execSync(`id -u ${name}`, { stdio: 'pipe', timeout: 3000 });
+    return true;
+  } catch {
+    // 不存在才创建
+  }
+  try {
     // --no-log-init: skip lastlog/wtmp updates (faster, less I/O)
     // -M: no home directory
     // -K UID_MIN=UID: allow creating user with specific UID below system range

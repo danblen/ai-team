@@ -38,7 +38,7 @@ function sanitizeName(name) {
  * 解析出「本次任务实际工作的项目目录」：
  *   <配置的工作根目录>/<项目名>
  *   或（未配置工作根目录时）
- *   ../aiteamoutput/<项目名>
+ *   ../aiteamoutput/<邮箱>/<项目名>
  * - base 用 path.resolve 处理，确保绝对路径不会被当作相对路径拼接；
  * - 未配置根目录时回退到仓库外的 WORKSPACES_DIR（../aiteamoutput）；
  * - 未提供项目名时用 sid 兜底；
@@ -47,6 +47,10 @@ function sanitizeName(name) {
 function resolveProjectDir(reqWorkDir, projectName, sid, email, direct) {
   if (direct && reqWorkDir) return path.resolve(reqWorkDir);
   let base = reqWorkDir ? path.resolve(reqWorkDir) : WORKSPACES_DIR;
+  // 未指定工作根目录时，按邮箱分目录，方便服务器上按用户管理项目
+  if (!reqWorkDir && email) {
+    base = path.join(base, sanitizeName(email));
+  }
   const name = sanitizeName(projectName) || sid;
   return path.join(base, name);
 }

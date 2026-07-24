@@ -155,8 +155,7 @@ export function mountEnv(app) {
         return res.end();
       }
       if (uid !== null) {
-        secureWorkspace(workDir, uid);
-        sendSSE(res, 'status', { text: `沙箱 UID ${uid} · 工作目录已隔离` });
+        secureWorkspace(workDir, uid, sid);
       }
 
       const exitCode = await runCLI(cliId, task, workDir, {
